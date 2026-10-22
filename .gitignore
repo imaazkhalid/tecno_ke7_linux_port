@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+*.zip
+ke7_dump/
+unpacked_twrp/
+KE7-H693HJKM-Q-GL/
+backup/*.bin
+!backup/gpt.bin
+!backup/hwparam.json
