@@ -5,6 +5,8 @@ __pycache__/
 ke7_dump/
 unpacked_twrp/
 KE7-H693HJKM-Q-GL/
+firmware_parts/
+mtkclient/
 backup/*.bin
 !backup/gpt.bin
 !backup/hwparam.json
