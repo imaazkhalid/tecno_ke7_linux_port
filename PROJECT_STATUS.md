@@ -1050,3 +1050,41 @@ image**.  There is therefore no signature barrier — only the AT policy gate ab
 * `tools/atci_cli.c` (static aarch64 AT client over `atcid`).
 * `/tmp/opencode/imei/NV01_000`, `/tmp/opencode/nv/WIFI*` (analysis copies, not committed).
 * IMEI values are deliberately **not** written to this repo.
+
+### 35.8 WiFi MAC fixed (vendor-supported path)
+`/vendor/bin/wlan_assistant` (runs as `wifi`, started at boot) loads the WiFi NVRAM and pushes it to
+`/dev/wmtWifi`.  Its strings and disassembly show a **fallback MAC file**:
+```
+open("/data/vendor/macwifi", O_RDONLY); read(fd, buf, 0x3ff); if (len < 0x11) fail;
+log("MAC ADDR = %s", buf);      // splits on ':' → mac[0..5]
+```
+So the file must be a **17-byte `aa:bb:cc:dd:ee:ff` string**.  Written:
+```
+echo "02:00:00:00:00:01" > /data/vendor/macwifi   # chmod 644
+```
+Result (verified): the daemon logs `[WLAN-ASSISTANT] MAC ADDR = 02:00:00:00:00:01` plus
+`mac[0..5]`, and at boot writes the NVRAM to the driver:
+`WIFI_write WR-BUF:NVRAM\x01, length 2060` → `wlanNvramBufHandler: buf=…, length=2048`.
+The `NVRAM WARNING` synthetic SSID no longer appears in the scan state (`dumpsys wifi` count 0).
+Note: `wlan0` itself shows `02:00:00:00:00:03` — that is **Android's per-network randomised MAC**
+(stored in `/data/misc/wifi/WifiConfigStore.xml`), not the hardware MAC; it is normal Android 10
+behaviour and can be disabled per network if desired.
+
+### 35.9 BT MAC — works, but stays on the compiled-in default
+BT is functional (`state: ON`, name "TECNO SPARK 6").  Its MAC is `00:00:46:00:00:01`, from
+`nvram_bt_default_value` inside `/vendor/bin/nvram_daemon` (the `BT_Addr` record layout is
+`[BDAddr 6][Voice 2][Codec 4][Radio 6][Sleep 7][BtFTR 2][TxPWOffset 3][CoexAdjust 6]`, MAC at
+offset 0).  Writing `BT_Addr` by hand does **not** stick: the daemon rewrites the record
+(md5 → `e60684cb…`) from its own state/default and recomputes the trailer (`AA <byte>`), which is
+**not** a plain byte sum over the file (`BT_Addr` factory: sum 0x64 vs trailer 0x60).  Changing the
+BT MAC would need a proper write through `libnvram`/the NVRAM HAL or the `nvram` partition (still
+all-zero).  Left as-is — it is a cosmetic default, not a functional fault.
+
+### 35.10 Useful commands
+```
+# AT to the modem
+setprop persist.vendor.service.atci.autostart 1
+/data/local/tmp/atci_cli 'AT+CSQ'
+# WiFi MAC
+echo "aa:bb:cc:dd:ee:ff" > /data/vendor/macwifi
+```
