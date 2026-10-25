@@ -698,6 +698,7 @@ During boot, the baseband processor (`md1img`) transitions through:
     }
     ```
   - While in `BOOT_WAITING_FOR_HS2`, all communications to AT command ports (`/dev/ttyC0`) and network queues return `-ENODEV`. The baseband processor will NOT transition to `READY` until it finishes loading or initializing its calibration and NVRAM tables from the AP file system service (`/dev/ccci_fs`).
+  - **Correction (Oct 25, 2026):** before the modem even reaches the NVRAM/FSD stage it performs 12 RPC `0x4005` SIM hot-plug EINT attribute queries. If the `md1_sim1_hot_plug_eint` descriptor is missing from the DTB, the modem stops there and never issues a single `/dev/ccci_fs` request. See **Section 29** for the root cause and fix.
   - Once filesystem handshakes finish or default calibration is established, the modem sends a control message on CCIF Channel 0 (`data[1] == MD_INIT_START_BOOT`, `reserved != 0x5555FFFF`), which fires `CCCI_EVENT_HS2`, transitioning the FSM to `READY` (state 2).
 
 ### 2. `/dev/ccci_fs` Packet Framing & Structures
@@ -775,6 +776,153 @@ Communication over `/dev/ccci_fs` utilizes `PORT_F_USER_HEADER` (`sizeof(struct 
 - Squeekboard on-screen keyboard operational.
 - Fast charging (1.5A boosted input current) working concurrently with USB gadget networking.
 - System power-off cleanly shuts down the PMIC and cuts power rails without reboot hangs.
+
+---
+
+## 29. Handshake 2 Stall — Root Cause: Missing SIM1 Hot-Plug EINT Device Tree Descriptor (Oct 25, 2026)
+
+### 1. Symptom
+After Handshake 1 the modem never reaches Handshake 2. `md_state` goes `2 -> 3` (`BOOT_WAITING_FOR_HS2`), AP sends runtime data successfully, then 30 s later:
+
+```
+[ccci1/fsm]exception 2, from fsm_main_thread [ccci]
+[ccci1/fsm]MD_BOOT_HS2_FAIL!
+[ccci1/mcd]md_boot_stats0:0x54430007
+[ccci1/mcd]md_boot_stats1:0x53320000
+```
+
+`0x54430007` = `"TC\x00\x07"` (task-create 7), `0x53320000` = `"S2\x00\x00"` (boot stage S2). The modem stops **dead** at that stage.
+
+### 2. Proof that FSD/NVRAM is NOT the first blocker
+`ccci_fsd.py` was started **before** the modem (`/dev/ccci_fs` open confirmed, modem at `md1:0`). The modem still issued **zero** file-system traffic:
+
+```
+[ccci1/cif]total cnt=13;rxq0 isr_cnt=0;rxq1 isr_cnt=12;rxq2..rxq23 isr_cnt=0 ... rxq15 isr_cnt=1
+```
+
+Queue mapping for this modem (`MD_GENERATION=6293`, `port/port_cfg.c` `#else` branch):
+
+| Macro | Value | Meaning |
+|---|---|---|
+| `EXP_CTRL_Q` | 6 | exception/control |
+| `DATA_TX_Q` / `DATA_RX_Q` | 0 | ccmni data |
+| `DATA_TX_ACK_Q` | 1 | data ack |
+| `DATA2_RX_Q` | 0 | |
+| `DATA_C2K_PPP_Q` | 3 | C2K PPP |
+| **`DATA_FSD_Q`** | **4** | **`ccci_fs` RX+TX queue** |
+| `DATA_AT_CMD_Q` | 5 | `ttyC0` |
+| (RPC) | 1 | `CCCI_RPC_RX=32` / `CCCI_RPC_TX=33` |
+
+So `rxq4 = 0` proves no FSD request was ever transmitted by the modem.
+`rxq15 = 1` is not a data queue: CCIF channel 15 is the CCIF-SRAM control channel, i.e. exactly one Handshake 1 interrupt (`ISR: RCHNUM=0x00008000`).
+
+### 3. What the modem actually does before stopping
+Exactly 12 RPC packets on queue 1, `op_id=0x4005` (`IPC_RPC_GET_EINT_ATTR_OP`, see `port/port_rpc.h:40`), 68 bytes each:
+
+```
+SIM1: type=6 (SIM_EINT_SRCPIN), type=0 (SIM_EINT_NUM), type=5 (SIM_EINT_DEDICATEDEN)
+SIM2: same three
+SIM3: same three
+SIM4: same three
+```
+
+Each reply is 40 bytes and contains `FS_PARAM_ERROR`-style negative value:
+```
+[ccci1/rpc] EINT_ATTR: name=MD1_SIM1_HOT_PLUG_EINT, len=23, type=6, ret=-11
+[ccci1/cif] send_skb: qno=1, ch=33, ccif_ch=1, len=40
+[ccci1/rpc] rpc_msg_handler: reply sent! ret=0
+```
+`ret=-11` = `ERR_SIM_HOT_PLUG_QUERY_STRING` (`enum sim_hot_plug_eint_queryErr` in `port/port_rpc.h`: `NULL_POINTER=-13`, `QUERY_TYPE=-12`, `QUERY_STRING=-11`).
+
+### 4. Why the attribute lookup failed
+`get_eint_attr_DTSVal()` (`port/port_rpc.c:332`) only reads cached per-SIM values that `get_dtsi_eint_node()` (`port/port_rpc.c:306`) collected at probe time with `of_find_node_by_name()`. Our DTB had **no `md1_sim1_hot_plug_eint` node**, hence:
+
+```
+[ccci1/rpc] MD1_SIM1_HOT_PLUG_EINT: node 0 no found
+[ccci1/rpc] MD1_SIM2_HOT_PLUG_EINT: node 1 no found
+[ccci1/rpc] MD1_SIM3_HOT_PLUG_EINT: node 2 no found
+[ccci1/rpc] MD1_SIM4_HOT_PLUG_EINT: node 3 no found
+[ccci1/rpc] node 4 is NULL
+```
+
+### 5. How stock Android differs (the decisive find)
+The stock boot DTB contains only an **empty stub**:
+
+```dts
+md1_sim1_hot_plug_eint { phandle = <0xdd>; };
+md1_sim2_hot_plug_eint { phandle = <0xde>; };
+```
+
+The real descriptor is applied by a **DTBO overlay**, `ke7_dump/dtbodts/01_dtbdump_fragment@0.dts`, `fragment@36` (targeted via `/__symbols__: md1_sim1_hot_plug_eint = "/fragment@36:target:0";`):
+
+```dts
+fragment@36 {
+    target = <0xffffffff>;
+    __overlay__ {
+        compatible = "mediatek,md1_sim1_hot_plug_eint-eint";
+        debounce = <0x0 0x2710>;   /* 10000 us -> 10 ms after /1000 */
+        dedicated = <0x0 0x0>;
+        interrupts = <0x0 0x8>;    /* EINT 0, IRQ_TYPE_LEVEL_LOW */
+        sockettype = <0x0 0x0>;
+        src_pin = <0x0 0x1>;
+        status = "okay";
+    };
+};
+```
+
+Only **SIM1** exists (single-SIM device). On stock, SIM2/3/4 queries also return `-11` and the modem tolerates that — but SIM1 must resolve. With SIM1 also failing, `md_init` stops.
+
+`md_eint_struct[]` (`port/port_rpc.c:202`) defines exactly which cell of which property is read:
+
+| Query type | Property | Cell index |
+|---|---|---|
+| `SIM_EINT_NUM` | `interrupts` | 0 |
+| `SIM_EINT_DEBOUNCE` | `debounce` | 1 |
+| `SIM_EINT_POLA` | `interrupts` | 1 (decoded: `&0x5` → polarity, `&0x3` → sensitivity) |
+| `SIM_EINT_SENS` | `interrupts` | 1 |
+| `SIM_EINT_SOCKE` | `sockettype` | 1 |
+| `SIM_EINT_DEDICATEDEN` | `dedicated` | 1 |
+| `SIM_EINT_SRCPIN` | `src_pin` | 1 |
+
+Note the driver reads these as **raw u32 cells only** (`of_property_read_u32_index`); it never calls `of_irq_get()`, so **no `interrupt-parent` and no pinctrl binding is required** — the `interrupts` property is plain data here.
+
+### 6. Fix applied
+Added to `linux/arch/arm64/boot/dts/mediatek/mt6768-tecno-ke7.dts`, inside `&{/soc}` immediately after the `mdcldma@10014000` node (values verbatim from the stock DTBO so behaviour matches vendor exactly):
+
+```dts
+md1_sim1_hot_plug_eint: md1_sim1_hot_plug_eint {
+    compatible = "mediatek,md1_sim1_hot_plug_eint-eint";
+    debounce = <0 10000>;          /* usec -> 10 ms for the MD */
+    dedicated = <0 0>;
+    interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+    sockettype = <0 0>;
+    src_pin = <0 1>;
+    status = "okay";
+};
+```
+
+Build & deploy:
+```bash
+cd ~/tecno_ke7_linux_port/linux
+make -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- mediatek/mt6768-tecno-ke7.dtb
+# -> arch/arm64/boot/dts/mediatek/mt6768-tecno-ke7.dtb  (45,611 bytes, md5 c9d54203f69a44b4056a23591ec22835)
+scp -F /dev/null -o StrictHostKeyChecking=no \
+    arch/arm64/boot/dts/mediatek/mt6768-tecno-ke7.dtb \
+    root@172.16.42.2:/boot/mt6768-tecno-ke7.dtb
+# on device: also copy to /boot/mt6768.dtb (U-Boot loads that name too)
+```
+
+`dtc` emits a harmless warning (`interrupts_property: .../#interrupt-cells: size is (8), expected multiple of 12`) because `interrupts` is used as data with a 2-cell vector; ignore it.
+
+### 7. Notes / hazards recorded during this investigation
+- **Never reload `ccci.ko` in a running system.** `rmmod ccci && modprobe ccci` in the same boot **hard-hangs the kernel** (USB gadget dies immediately, no SSH, requires a physical power cycle). This happened twice. Use a reboot instead of a reload.
+- `rmmod ccci` only succeeds when `ModemManager.service` is stopped (`systemctl stop ModemManager`); otherwise it is busy or leaves stale state.
+- `systemctl reboot` on the current build did **not** bring the phone back — it de-enumerated from USB and stayed offline (>5 min), i.e. it powered off or hung. Power-off is fixed, reboot path still unverified; expect a manual power-on.
+- `boot_md_store()` (`ccci_modem.c:1220`) is a write-only trigger — any write to `/sys/kernel/ccci/boot` appends `CCCI_COMMAND_START` (`cmd_id=1`). There is no sysfs stop; a start from `EXCEPTION` state yields `unexpected FSM state 2->5`.
+- `ccci_mdinit.py` reports `RESET (1)` even while the FSM is really in `BOOT_WAITING_FOR_HS2`; trust `/sys/kernel/ccci/boot` (`md1:3`) and the kernel log, not the ioctl mapping in that script (the mapping is wrong and should be corrected).
+- `swtp` warnings (`can't find swtp0..4 compatible node`, `ret=-4`) are **normal** — the stock DTB contains no `swtp` nodes either.
+- `get_eint_attr_val()` realises RPC EINT failures only at HS2; HS1 (`0x5555FFFF` on CCIF ch 15) is independent of this bug, which is why HS1 always succeeded.
+
 
 
 

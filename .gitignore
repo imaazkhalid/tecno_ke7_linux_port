@@ -6,7 +6,26 @@ ke7_dump/
 unpacked_twrp/
 KE7-H693HJKM-Q-GL/
 firmware_parts/
+flash_images/*.img
+flash_images/*.bin
 mtkclient/
 backup/*.bin
+backup/.state
 !backup/gpt.bin
 !backup/hwparam.json
+
+# Large build trees / separate git repositories (keep out of this repo)
+linux/
+u-boot/
+downstream-src/
+mt6768-mainline-notes/
+wifi-port/
+arch_config/
+kernel-patches/
+platform-tools/
+*.tar.gz
+boot-uboot.img
+kallsyms.txt
+kernel_uncompressed
+kernel_config.gz
+kernel_config.txt

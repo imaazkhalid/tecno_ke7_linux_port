@@ -1,6 +1,6 @@
 # Tecno Spark 6 (KE7 / MT6768) — Linux Bringup Project Status & Memory Bank
 
-**Last Updated:** October 23, 2026  
+**Last Updated:** October 25, 2026  
 **Primary Goal:** Fully functional Arch Linux ARM (aarch64) with GNOME Phosh, touchscreen, battery management, USB gadget networking, and internal MediaTek CONNSYS Wi-Fi (`wlan0`).
 
 ---
@@ -59,6 +59,17 @@
   7. **Fixed ARM64 Alignment Fault in Register Dump:** Replaced raw `ccci_util_mem_dump()` on `ioremap` registers with safe 32-bit `readl_relaxed()` words to prevent kernel oopses in `__pi_memcpy_generic`.
   8. **Fixed Unload IRQ Storm:** Added `disable_irq()` and `free_irq()` in `ccci_cldma_exit()` and `ccci_ccif_exit()` to prevent unhandled interrupt storms when unloading `ccci.ko`.
   9. **Identified Queue 1 RPC Traffic:** Verified that incoming Queue 1 packets are `channel=32` (`CCCI_RPC_RX`), which the modem uses to query hardware pins/clocks before completing Handshake 2.
+  10. **ROOT CAUSE OF HS2 STALL FOUND (Oct 25, 2026) — Missing SIM1 Hot-Plug EINT DT Node:**
+      * After HS1 the modem sends exactly **12 RPC packets** (`op_id=0x4005`, `IPC_RPC_GET_EINT_ATTR_OP`) covering `MD1_SIM1..SIM4_HOT_PLUG_EINT` × 3 query types (`SRCPIN`=6, `NUM`=0, `DEDICATEDEN`=5), and our driver answered **all 12 with `ret=-11`** (`ERR_SIM_HOT_PLUG_QUERY_STRING`).
+      * After those replies the modem goes **completely silent**: `rxq1 isr_cnt=12`, **`rxq4 isr_cnt=0`** (FSD queue), `rxq15 isr_cnt=1` (= HS1 on CCIF channel 15). Boot stats freeze at `md_boot_stats0=0x54430007` ("TC 7") / `md_boot_stats1=0x53320000` ("S2"), and `MD_BOOT_HS2_FAIL!` fires 30 s later.
+      * **The FSD theory is not yet the blocker:** with `ccci_fsd.py` already running and `/dev/ccci_fs` open, the modem still issued **zero** FSD requests. FSD is required later, but the modem never reaches the NVRAM stage.
+      * **Real difference from stock Android:** the stock boot DTB only contains an empty stub `md1_sim1_hot_plug_eint { phandle = ... }`. The real descriptor lives in the **DTBO overlay `fragment@36`** (`ke7_dump/dtbodts/01_dtbdump_fragment@0.dts` ~line 956) with `compatible = "mediatek,md1_sim1_hot_plug_eint-eint"`, `debounce = <0 10000>`, `dedicated = <0 0>`, `interrupts = <0 8>` (EINT 0, `IRQ_TYPE_LEVEL_LOW`), `sockettype = <0 0>`, `src_pin = <0 1>`, `status = "okay"`.
+      * Our mainline DTS had **no such node at all**, so `get_dtsi_eint_node()` logged `MD1_SIM1_HOT_PLUG_EINT: node 0 no found`. On stock, SIM1 answers are valid (SIM2-4 legitimately fail — this is a single-SIM device), so the MD's `md_init` continues. With SIM1 also failing, the MD halts.
+      * **Fix applied:** added the node verbatim to `mt6768-tecno-ke7.dts` under `&{/soc}`, right after `mdcldma`. Rebuilt DTB (45,611 bytes, md5 `c9d54203f69a44b4056a23591ec22835`) and deployed to `/boot/mt6768-tecno-ke7.dtb` **and** `/boot/mt6768.dtb` (both used by U-Boot), with `.bak` copies of the previous 45,369-byte DTB kept in `/boot`.
+  11. **Operational hazards discovered:**
+      * **Never `rmmod ccci` + `modprobe ccci` in the same boot** — the second load hard-hangs the kernel (USB gadget dies, no network, requires a physical power cycle). No reliable FSM reset path without a reboot; reboot instead of reloading.
+      * **`systemctl reboot` did not bring the phone back** (Oct 25 06:01 attempt): USB device de-enumerated completely and did not re-appear even after 5 min, i.e. the phone ended up off/hung. Needs manual power-on. The PMIC `mt6358-poweroff` work covers power-*off*; reboot path still needs verification.
+  12. **NVRAM partitions are entirely erased:** `/dev/mmcblk0p8` (nvcfg), `p9` (nvdata), `p10` (persist), `p11`/`p12` (protect1/2) and `p26` (nvram) read back as **all zero bytes** (verified `tr -d '\000' | wc -c` = 0). The pre-repartition dumps in `~/tecno_ke7_linux_port/backup/` (`nvdata.bin`, `nvcfg.bin`, `persist.bin`, `protect1.bin`, `protect2.bin`, `nvram.bin`) are **also 100% zero**, so the data was already lost before the backup was taken. No ext4 superblock (`0x53EF` at offset 0x438) exists in any of them. Consequences: no RF calibration and no IMEI; a restore will be required before network registration can work.
 
 ---
 
@@ -168,6 +179,9 @@
   * Verified GNOME Phosh mobile desktop shell running smoothly at 720×1640 @ 60Hz.
   * Verified squeekboard virtual keyboard, GNOME Console with VTE shell markers, and concurrent 1.5A fast charging indicator.
   * Verified clean system power-off from UI without reboot hangs.
-- [ ] Run `ccci_fsd.py` and `ccci_mdinit.py` on phone to complete Handshake 2, transition FSM to `READY`, and unblock `/dev/ttyC0`.
+- [x] Run `ccci_fsd.py` and `ccci_mdinit.py` on phone with FSD started **before** modem boot (verified `/dev/ccci_fs` open, `md1:0` clean start).
+- [ ] **Verify the SIM1 hot-plug EINT DT node fixes the HS2 stall** — rebuild/deploy done, awaiting phone power-on. Check for `rxq4 isr_cnt > 0` (FS requests) or direct `md_state change from 3 to 2` (READY).
+- [ ] Mount NVRAM partitions and populate them before the modem starts asking for files (`/mnt/vendor/nvdata/md`, `protect_f/md`, `protect_s/md`, `nvcfg`, `nvdata/md_cmn`, `mdlpm`, `etc/mdota`, `firmware`).
+- [ ] Recover NVRAM/RF calibration + IMEI (p8-p12, p26 are fully erased; user can supply the device IMEI).
 - [ ] Verify SIM detection (Jazz SIM) via AT commands (`AT+CPIN?`, `AT+CSQ`, `AT+COPS?`) and test data connection over `ccmni0`.
 - [ ] Bring up Audio (`snd-soc-mt6768-afe` + `mt6768-mt6358` + GPIO 39 2-pulse external speaker amp).
