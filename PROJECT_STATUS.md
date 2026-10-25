@@ -968,3 +968,85 @@ the driver logged a firmware timeout.
 
 **Note:** the current TWRP is a port from an **MT6785** tree (`ueventd.mt6785.rc`, image name
 `CY-KE7-H693-G`), so other mismatches are possible; the touch fix is the first and most likely one.
+
+---
+
+## 35. Stock Android is up; IMEI / MAC provisioning findings (2026-10-25)
+
+### 35.1 Device state after the stock flash
+* `KE7-H693GHIJKM-Q-GL-200617V074`, Android 10, `ro.boot.verifiedbootstate=orange`,
+  `flash.locked=0` — **unlock preserved**.
+* **adb is root out of the box** (`uid=0`, `u:r:su:s0`) — no Magisk needed for shell-level work.
+* Modem: `MOLY.LR12A.R3.MP.V114.9.P1`, `gsm.sim.state=LOADED`, `AT+CSQ` = **23** (good RF).
+* `AT+COPS?` → `0`, `AT+CREG?` → `0,2` (searching), PS reject cause **111**, CS reject cause **6
+  (Illegal ME)** → the network refuses the attach because the IMEI is missing.
+
+### 35.2 AT access (how we talk to the modem)
+`/dev/ttyC0` is owned by `vendor.gsm0710muxd`; the CCCI ttys (`ttyC1/3`) are not termios devices.
+MTK's real AT path is **`atcid`**, disabled by default:
+```
+setprop persist.vendor.service.atci.autostart 1   # starts atcid, creates /dev/socket/adb_atci_socket
+```
+Client: `tools/atci_cli.c` → static aarch64 binary pushed to `/data/local/tmp/atci_cli`,
+connects to the Unix socket, sends `<cmd>\r`, prints the reply.  Verified `AT` → `OK`.
+Reads work: `AT+EGMR=0,7`, `AT+EGMR=0,10` (both `+EGMR: ""`), `AT+CSQ`, `AT+CREG?`, `AT+CLAC`.
+
+### 35.3 Why the IMEI cannot be written over AT
+`AT+EGMR=1,7,"<imei>"` and `=1,10` both return a bare `ERROR` (parser level, not `+CME ERROR`).
+The culprit is in the leaked modem source, `mcu/pcore/custom/modem/common/ps/custom_l4_utility.c:728`:
+```c
+kal_uint8 custom_allow_at_write_imei(void)
+{
+#ifdef __NVRAM_CRITICAL_DATA_SIGN_SUPPORT__
+    return KAL_FALSE;
+#else
+#ifdef __MTK_INTERNAL_ENG_USER__
+    return KAL_TRUE;      /* engineering build only */
+#else
+    return KAL_FALSE;     /* <-- production build */
+#endif
+#endif
+}
+```
+So the write is compiled out of production firmware.  Reads are unaffected.
+
+**Not a crypto lock:** `grep` of `flash_images/md1img.img` for `devPubKeyModulus`, `crticalDataSign`,
+`custom_nvram_check_signed_critical_data` → **0 hits**, i.e. the signed-critical-data feature (RSA
+chain root→device key, TLV tags `CPUID/IMEI1/IMEI2/MEID/WIFI_MAC/BT_MAC`) is **not compiled into our
+image**.  There is therefore no signature barrier — only the AT policy gate above.
+
+### 35.4 Storage of the IMEI
+* `nvram` partition (`/dev/block/by-name/nvram`, p26): **entirely zero** (64 MiB) — not the source.
+* MD NVRAM lives in `nvdata`: `/mnt/vendor/nvdata/md/NVRAM/`
+  * `NVD_IMEI/NV01_000` (96 B) and `NV0S_000` (144 B) — `"LDI\0"` header, LID `0xF006`, size 16,
+    followed by 32 bytes of opaque data at +0x40; md5 `7c636a37e37bed723413d1aad1d8114c`, stable.
+  * `NVD_DATA/`, `NVD_CORE/`, `CALIBRAT/`, `BACKUP/` (BACKUP empty).
+* The original IMEI is **not recoverable**: full scan of the 64 MiB `nvram` dump found **zero**
+  Luhn-valid BCD IMEI candidates, and the AP-side `nvdata` was zeroed before the flash.
+* Our supplied IMEIs pass Luhn (TAC `<TAC>`, serials …315 / …314) but do not appear anywhere on
+  the device.
+
+### 35.5 WiFi "NVRAM WARNING: Err = 0x10"
+* Not a real AP: the driver **injects a synthetic scan result**.  In
+  `wifi-port/wlan/core/gen4m/common/wlan_lib.c`:
+  `NVRAM_ERROR_INVALID_MAC_ADDR = BIT(4)` = **0x10**, printed via
+  `"NVRAM WARNING: Err = 0x%02X"`.
+* `WIFI_CFG_PARAM_STRUCT` starts at offset 0 of `/mnt/vendor/nvdata/APCFG/APRDEB/WIFI`;
+  `aucMacAddress[6]` is at **offset 4** and is all zero → `wlan0` falls back to a random MAC.
+* Writing a MAC there and rebooting does **not** stick: `nvram_daemon` rewrote the file back to the
+  original bytes (md5 `ea18e79bae435ba207c5e81c60a1988a`), i.e. the APCFG file has a trailer
+  (`… 0xAA <byte>`) that is validated.  MTK's `nvram_util_cal_checksum_simple()` (parity-split sum)
+  does **not** reproduce it, so the APCFG checksum is a different algorithm — still open.
+* BT MAC is a placeholder too (`00:00:46:00:00:01`, `BT_Addr` NVRAM record at offset 2).
+
+### 35.6 Remaining routes for IMEI
+1. **META mode** (factory provisioning path).  `meta_tst` exists at `/vendor/bin/meta_tst` but fails
+   to init standalone ("Enter meta_tst normal mode init fail"); the standard tool is MauiMETA over
+   USB with the `APDB_MT6768_S01__W2021` / `MDDB_…EDB` databases that ship in the ROM.
+2. **Tecno authorised service** (same META path, with the vendor tool).
+3. Direct NVD record injection — blocked by the opaque 32-byte record format.
+
+### 35.7 Artefacts
+* `tools/atci_cli.c` (static aarch64 AT client over `atcid`).
+* `/tmp/opencode/imei/NV01_000`, `/tmp/opencode/nv/WIFI*` (analysis copies, not committed).
+* IMEI values are deliberately **not** written to this repo.
