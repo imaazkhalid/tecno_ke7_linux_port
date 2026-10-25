@@ -912,3 +912,53 @@ Reset sent → phone powered off. Logs: `/tmp/opencode/flash.log`, `/tmp/opencod
 Not flashed (unchanged): preloader boot0/boot1, seccfg (unlock kept), lk/lk2, tkv, nvram, nvdata,
 persist, protect1/2, otp, flashinfo, md_udc, boot_para, proinfo, para, expdb, frp, metadata, nvcfg,
 gz1, gz2, sec1.
+
+---
+
+## 34. TWRP touch — root cause and fix (2026-10-25)
+
+### 34.1 Why the existing TWRP has no touch
+* `flash_images/twrp.img` and the **stock** `recovery.img`/`boot.img` share the **identical kernel**
+  (md5 `e0a2d7a7e30273c70156bd6374bbaf7f`, 9,655,894 B) — so it is not a kernel-version mismatch.
+* The kernel blob is **gzip + appended DTB** (`d00dfeed`), which is why a naive `strings` on the
+  image finds nothing. After inflating (`zlib.decompressobj(16+MAX_WBITS)`) it contains:
+  `novatek,NVT-ts-spi`, `focaltech,fts`, `novatek_ts_fw`, `focaltech_ts_fw`, `nt36xxx`, `fts_ts`,
+  150 `tpd*` strings → **both touch drivers are built into the kernel** (no `.ko` needed).
+* The panel is a **Novatek NT36672A on SPI**: the mainline DTS
+  (`mt6768-tecno-ke7.dts:444`) declares `compatible = "novatek,nt36672a-ts"`, `reg = <0>`,
+  `spi-max-frequency = <8000000>` and `firmware-name = "novatek_ts_fw.bin"`.  The stock DTBO
+  (parsed from `dtbo.img`, big-endian header, 1 entry, 66,943 B) has the matching
+  `tran_touch: touch@0` node plus an unused `cap_touch@14` (`mediatek,cap_touch`).
+* The driver needs **`novatek_ts_fw.bin`**.  It lives on the **vendor** partition at
+  `/firmware/novatek_ts_fw.bin` (118,784 B) — extracted from `super.raw` (LP metadata header at
+  **0x3000**, 128-byte header, table descriptors at offset **80**; `vendor` = 1 extent,
+  973,352 sectors = 498,356,224 B, ext4 volume label `vendor`).
+  `/vendor/lib/modules` holds only 9 modules (bt/fmradio/fpsgo/gps/met/udc/wlan/wmt) — **no touch
+  module**, confirming the driver is built-in.
+* **TWRP's ramdisk has no firmware directory at all** (`find . -type d -name firmware` → none), while
+  its own `ueventd.rc` declares
+  `firmware_directories /etc/firmware/ /odm/firmware/ /vendor/firmware/ /firmware/image/`.
+  So `request_firmware("novatek_ts_fw.bin")` fails and the panel never registers an input device.
+
+### 34.2 Fix
+`inject_twrp_fw.py` appends `cpio` `newc` entries **immediately before the TRAILER**, so every
+original entry stays byte-identical (avoids the mode/ownership drift of extract→repack), then
+rebuilds the Android boot image with the same kernel+DTB, page-aligned (2048), recomputed SHA1 `id`.
+
+Injected into `flash_images/twrp_touch.img` (26,005,504 B):
+```
+lib/                                   (dir 0755)
+lib/firmware/novatek_ts_fw.bin         (118784, kernel direct path /lib/firmware)
+system/etc/firmware/                   (dir 0755)
+system/etc/firmware/novatek_ts_fw.bin  (118784, ueventd path /etc/firmware)
+```
+Verified: ramdisk at 0x936000, gzip magic OK, 685 entries (680 original + 5), TRAILER last.
+
+**Flash command (BROM):** `mtk.py w recovery flash_images/twrp_touch.img`
+Then in TWRP verify: `dmesg | grep -i -E "nt36|novatek|tpd"` and
+`cat /proc/bus/input/devices` (expect a `NVT-ts` / `NVTCapacitiveTouchScreen` input device).
+If touch is still dead, the next checks are `/proc/device-tree` for the `touch@0` node and whether
+the driver logged a firmware timeout.
+
+**Note:** the current TWRP is a port from an **MT6785** tree (`ueventd.mt6785.rc`, image name
+`CY-KE7-H693-G`), so other mismatches are possible; the touch fix is the first and most likely one.
