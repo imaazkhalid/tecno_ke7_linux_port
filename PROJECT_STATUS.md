@@ -1088,3 +1088,31 @@ setprop persist.vendor.service.atci.autostart 1
 # WiFi MAC
 echo "aa:bb:cc:dd:ee:ff" > /data/vendor/macwifi
 ```
+
+### 35.11 META mode entry — attempted, blocked at the preloader
+Goal: use META (the only path that can write the IMEI, see §35.3/§35.10) with a native client.
+
+What was tried:
+1. `mtk.py meta METAMETA` (preloader path, includes the **Tecno SLA key** that mtkclient carries).
+   * The preloader **is** found: `0e8d:2000`, with a proper CDC-ACM descriptor set
+     (interface 0 CDC Communication class 0x02/subclass 0x02/protocol 0x01, bulk OUT 0x01,
+     bulk IN 0x81, interrupt IN 0x83).
+   * But the first `ep_in()` read times out (`[Errno 110] Operation timed out`) — the preloader
+     never emits the `READY` that `mtkclient/Library/meta.py:init()` waits for, so `METAMETA` is
+     never sent.  No `/dev/ttyACM*` node is created (kernel `cdc_acm` does not bind it), so the
+     DTR/tty route is unavailable too.
+2. `mtk.py meta2` (BROM path, sets the META boot flag then watchdog-resets).
+   * Reports `Main - Successfully set meta mode :)`, **but the phone does not come up in META** —
+     it boots Android, and one attempt dropped it into **stock recovery** instead.  A normal
+     `reboot` restored Android.  So the BROM flag is not honoured for META on this platform.
+
+Conclusion: with this production firmware the preloader does not offer the META handshake to
+mtkclient (consistent with the AT+EGMR policy gate).  Remaining route is the **official tool**
+(MauiMETA / SN Write Tool, Windows or Wine), which may drive the preloader differently, or a
+Tecno service centre.
+
+Useful state notes:
+* MTK preloader appears automatically after `adb shell reboot -p` while the cable is connected
+  (charging mode), and persists roughly 20–30 s — long enough to run a tool against it.
+* After `meta2`, verify the phone actually booted Android (`getprop sys.boot_completed`); recovery
+  has an almost empty property set and no `wlan0`.
