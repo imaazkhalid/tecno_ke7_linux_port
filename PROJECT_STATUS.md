@@ -869,3 +869,46 @@ Flash: `super.raw`, `boot.img`, `recovery.img`, `md1img.img`, `dtbo.img`, `logo.
 `para`, `expdb`, `frp`, `metadata`, `nvcfg`, `gz1`, `gz2`, `sec1`.
 
 Script: `flash_stock.sh` (pre-flight GPT check, all writes, zero userdata/misc, reset).
+
+### 33.9 Flash executed — SUCCESS (2026-10-25 ~15:09)
+Entered BootROM as `0e8d:0003` (Volume Up+Down while plugging; Volume Down alone gave `0e8d:2000`
+preloader). `mtk.py printgpt` worked through Kamakiri and confirmed `userdata` at
+`0x1a6000000` length `0xce5cf8000`.
+
+Two `multi` sessions were used (one BROM connection each, no re-plug needed):
+1. `super.raw` → sector 1310720, count 10240000 (= 5,242,880,000 B).
+2. the remaining 19 writes + `reset`.
+
+| image | sector | sectors | bytes |
+|---|---|---|---|
+| super.raw | 1310720 | 10240000 | 5,242,880,000 |
+| boot.img | 1157120 | 65536 | 33,554,432 |
+| recovery.img | 545040 | 65536 | 33,554,432 |
+| md1img.img | 643072 | 262144 | 134,217,728 (file 57,860,848) |
+| dtbo.img | 1222656 | 16384 | 8,388,608 |
+| logo.img | 1140736 | 16384 | 8,388,608 |
+| tee.img → tee1/tee2 | 1239040 / 1249280 | 10240 | 5,242,880 each |
+| scp.img → scp1/scp2 | 907264 / 919552 | 12288 | 6,291,456 each |
+| sspm.img → sspm_1/2 | 931840 / 933888 | 2048 | 1,048,576 each |
+| spmfw.img | 905216 | 2048 | 1,048,576 |
+| vbmeta.img | 1259520 | 16384 | 8,388,608 |
+| vbmeta_system.img | 1275904 | 16384 | 8,388,608 |
+| vbmeta_vendor.img | 1292288 | 18432 | 9,437,184 |
+| cache.raw | 11550720 | 614400 | 314,572,800 |
+| tranfs.raw | 12165120 | 614400 | 314,572,800 |
+| zero4m → userdata | 13828096 | (part) | **4,194,304** |
+| zero4m → misc | 610576 | (part) | **4,194,304** |
+
+Note: the "sector count" in mtkclient's message is the **partition** size (protocol header); the
+actual transfer is the file size — confirmed by the progress counters (`0x400000/0x400000` for
+userdata/misc, `0x12C00000` for cache/tranfs).
+
+**Harness gotcha (fixed):** `mtk.py multi` splits on `;` and then `rcmd.split(" ")`, so a `"; "`
+separator produces an empty token and aborts with `invalid choice: ''`. Always join multi commands
+with a bare `;` **and no space after it**, and keep image paths free of spaces (the stock folder name
+contains spaces, hence `firmware/stock/bin/` symlinks).
+
+Reset sent → phone powered off. Logs: `/tmp/opencode/flash.log`, `/tmp/opencode/flash2.log`.
+Not flashed (unchanged): preloader boot0/boot1, seccfg (unlock kept), lk/lk2, tkv, nvram, nvdata,
+persist, protect1/2, otp, flashinfo, md_udc, boot_para, proinfo, para, expdb, frp, metadata, nvcfg,
+gz1, gz2, sec1.
