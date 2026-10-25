@@ -76,6 +76,15 @@
 * **ROOT CAUSE FOUND & FIXED IN U-BOOT (Oct 25, 2026):** The modem bus-hangs on EINT_SRC write because the MD EINT controller clock is gated off. The fix is writing `0x21` to `INFRA_AO_MD_SRCCLKENA` (INFRACFG_AO `0x10001000` + `0xF0C`) **in U-Boot before the modem boots**. Fix implemented in `u-boot/arch/arm/mach-mediatek/mt6768/init.c` (`board_late_init()`). U-Boot rebuilt (700576 bytes). **NOT YET FLASHED** -- need to write to correct boot partition (likely p1, p2, or p4). Once flashed, modem should reach READY and USB gadget will enumerate.
 * Phone reachable only over **Wi-Fi SSH** (IP changes on nearly every boot; rediscover with ping sweep of `10.96.213.0/24`, laptop = `10.96.213.247`).
 
+### 3.15 CORRECTION (Oct 25, 2026, later) — EINT is NOT the HS2 blocker; §29 hypothesis disproved
+* Public leaked **MOLY.LR12A.R3.MP** source proves the 12 RPCs are `EINT_Setting_Init()` **phase 1** (SRCPIN=6, NUMBER=0, DEDICATEDEN=5 per SIM). Every getter has a default; the function has no failure branch, no return, no wait — it **cannot stop the MD**.
+* The 5 missing queries (NUMBER, DEBOUNCE=1, POLARITY=2, SENSITIVITY=3, SOCKET=4) belong to `L1sim_Reset_All()` **phase 2**, which runs only when the SIM task starts card reset (VSIM on). They are absent because the MD never reaches SIM card reset, not because EINT registration aborted.
+* The DT node values are canonical (`dedicated=<0 0>`, `src_pin=<0 1>`, `interrupts=<0 8>`, `debounce=<0 10000>`) — identical to Motorola/Infinix/KT-R1 stock DTS. Adding it cannot fix HS2.
+* `0x54430007` / `0x53320000` are **normal post-HS1 markers**: a public working MT6765 log shows the same values at HS1 and reaches HS2 0.42 s later (`control 0x0,0x0`, `md_state 3->4`).
+* `no md eint settings in DWS, LEAVE_REG_EINT` is set only when an AP RPC returns <0; it skips registration and **continues**. DWS = `codegen.dws` (build-time DCT config), not an NVRAM database. Zeroed `nvdata`/`nvram` does not affect the EINT path.
+* Next: find the stall **before** SIM card reset (after `custom_drv_init`/`EINT_Setting_Init`, before the SIM task's first reset request). Instrument all RPC `op_id`s after HS1.
+* Full source excerpts/URLs: `HARDWARE_RESEARCH_AND_DRIVER_RE.md` §31.
+
 ---
 
 ## 3. Wi-Fi Subsystem (CONNSYS Gen4m) Implementation Status
@@ -186,6 +195,7 @@
   * Verified clean system power-off from UI without reboot hangs.
 - [x] Run `ccci_fsd.py` and `ccci_mdinit.py` on phone with FSD started **before** modem boot (verified `/dev/ccci_fs` open, `md1:0` clean start).
 - [ ] **Verify the SIM1 hot-plug EINT DT node fixes the HS2 stall** — rebuild/deploy done, awaiting phone power-on. Check for `rxq4 isr_cnt > 0` (FS requests) or direct `md_state change from 3 to 2` (READY).
+  * **SUPERSEDED (Oct 25, 2026):** leaked LR12A.R3.MP source analysis shows EINT is **not** on the HS2 critical path (see §3.15 / HARDWARE §31). Keep the node (it is correct), but expect HS2 to still fail; debug the pre-SIM-reset init stage instead.
 - [ ] Mount NVRAM partitions and populate them before the modem starts asking for files (`/mnt/vendor/nvdata/md`, `protect_f/md`, `protect_s/md`, `nvcfg`, `nvdata/md_cmn`, `mdlpm`, `etc/mdota`, `firmware`).
 - [ ] Recover NVRAM/RF calibration + IMEI (p8-p12, p26 are fully erased; user can supply the device IMEI).
 - [ ] Verify SIM detection (Jazz SIM) via AT commands (`AT+CPIN?`, `AT+CSQ`, `AT+COPS?`) and test data connection over `ccmni0`.
@@ -474,3 +484,257 @@ Phosh runs as `alarm`.
   on the AP side (MD writes `"S1"/"S2"/"S3"/"TC n"`); LK loads `md1img` and powers MD1 **off** before
   jumping to Linux, so Linux must do a full power-on.
 
+
+---
+
+## 32. Oct 25 2026 (late) — ROOT-CAUSE DIRECTION FOUND: the modem is in an exception loop
+
+### 32.1 The modem is NOT idle — it crashed into the Nucleus exception dumper
+The PC-monitor records (part 31.2) were resolved against the **modem's own symbol table** (see 32.2):
+
+```
+0x90da8740  INT_EnterExceptionForOtherCore      (0x90da8740-0x90da8758)
+0x90da8758  INT_GetExlog                        (0x90da8758-0x90da8770)
+0x90db1bc0  INT_EnableUsipScq16MemoryDump
+0x90db20a8  INT_GetUsipScq16MCUViewMappingInfo  (0x90db20a8-0x90db2130)
+0x90da5dd4  ex_output_assert
+0x90da75a4  ex_cadefa_assert
+0x90b935a6  ESAL_AR_STK_Unsolicited_Set         (0x90b93474-0x90b936cc)
+```
+
+The live loop is:
+`INT_GetExlog` -> `ESAL_AR_STK_Unsolicited_Set` -> `INT_EnterExceptionForOtherCore` -> `INT_GetExlog`
+i.e. the MCU is in **`ex_cadefa_*` (Nucleus exception framework)** collecting a
+**"other core" (USIP/DSP) exception dump** and never finishes -> the modem never reaches the
+13th RPC (`0x400e` DTSI query) and never sends HS2.
+
+`mdccci_dbg` (smem 0x78000000) holds a partial exception header written by the MD:
+```
++0x000 43 43 43 49   "CCCI"
++0x004 45 44 42 47   "EDBG"
++0x008 07 00 00 70   0x70000007
++0x020 2e 07 00 00   0x0000072e  (likely line/frame id)
++0x02c 06 00 05 40   0x40050006  (last CCCI op 0x4005 / EINT attr type 6)
+```
+Everything else in that region is zero, and the `mdss_dbg` region (smem 0x78000800, where
+MT6739-class firmware keeps `EX_OVERVIEW`) is all zero. So the MD died before completing the record.
+
+### 32.2 The modem DbgInfo can be decompressed -> 95,602 symbols (HUGE)
+`md1img.img` section `md1_dbginfo` (file 0x1e4c080, payload at 0x1e4c280) is **raw LZMA**
+(props 0x5d, dict 16 MB, uncompressed size 3,693,978). Decompress:
+```python
+import lzma
+d=open('flash_images/md1img.img','rb').read()
+dec=lzma.LZMADecompressor(format=lzma.FORMAT_ALONE)
+out=dec.decompress(d[0x1e4c280:0x1f237b0])   # -> 3,693,978 bytes, eof True
+```
+Header: `CATICTNR` + version + `LR12A.R3.MP TK_MD_BASIC` + `MT6768_S00` +
+`MOLY.LR12A.R3.MP.V114.9.P1` + build date `2020/06/11 10:47`.
+
+Symbol table format inside: `<u32 start><u32 end><char name[]\0>` (contiguous ranges).
+Parsed and saved: **95602 symbols** -> `/tmp/opencode/md_syms.txt` (regenerate with the script
+in 32.6). This resolves ANY modem PC to `function+offset`.
+
+### 32.3 The modem CODE is encrypted (hardware secure-boot image)
+Evidence:
+- 300 random function start addresses from the symbol table: only **1/300 (0.3%)** has a sane
+  Thumb prologue; a normal ARM image would be 80-95%.
+- 64 KB entropy across `md1rom`: avg 6.16, 287/469 blocks >= 6.8 (near-random).
+- The DRAM copy at 0xae000000 is **byte-identical** to the file (payload at file 0x200), so LK does
+  not decompress or transform it; the decryption happens in the MD's fetch path (secure boot).
+- Data (strings, DbgInfo, MDDB, layout) is plaintext; only the code is encrypted.
+=> Static disassembly of the modem code is impossible without the eFuse/secure-world key.
+
+### 32.4 Matching modem SOURCE code leak found and saved locally
+Repo: `https://github.com/junkyard-2327/TK_MD_BASIC_MOLY.LR12A.R3.MP.V110.6`
+(same branch `MOLY.LR12A.R3.MP`, MT6768/MT6765 trees, commit `04ebd402fe9472e0c2e3da5a296c11819307b929`).
+Saved to: `vendor/TK_MD_BASIC_MOLY.LR12A.R3.MP/` (278 MB, sparse checkout:
+`mcu/common/driver/devdrv`, `mcu/pcore/custom`, `mcu/common/service`).
+
+What IS intact (useful): SIM/USIM (`icc_switchControl_al.c`, `icc_switchControl_mtk_0.c`,
+`icc_sim_common_mtk.c`), EINT (`eint_setting_init.c`), NVRAM (`custom_nvram_int_config.c`),
+drivers (`devdrv_common.c`), DHL service.
+What is **stripped** ("/* under construction !*/"): CCCI/HIF core, RPC client, KAL/assert
+implementation, boot flow, `lte_ccci_hal_init()`, exception writer.
+So the leak does NOT contain the HS1/HS2 or exception handshake code.
+
+### 32.5 What the firmware confirms (from the leak)
+`EINT_Setting_Init()` (called at the end of `Drv_Init_Phase2()`) is exactly the 12 RPCs we see, has a
+default for every getter and **cannot block**. `EINT_Setting_SW_Init()` + `kal_create_spinlock("eint")`
+are the last steps. The 5 "missing" queries (0/1/2/3/4) belong to `L1sim_Reset_All()` in the SIM task
+and only run when VSIM is powered. So the EINT phase completed and the crash is **after** it.
+`custom_query_md_product_model_id()` in `custom_nvram_int_config.c` is the source of the 0x400e DTSI
+query; it is called from `custom_nvram_config()` at NVRAM-task init. The modem dies before that.
+
+### 32.6 Reproduce the symbol table
+```python
+import lzma
+d=open('flash_images/md1img.img','rb').read()
+out=lzma.LZMADecompressor(format=lzma.FORMAT_ALONE).decompress(d[0x1e4c280:0x1f237b0])
+# symbols: scan for <u32 a><u32 b><name\0> with 0x90000000<=a<b and printable name
+```
+
+### 32.7 Also fixed this round
+- **MD1 SRAM power-on gap** (mainline `sram_pdn_bits=0`): `md_cd_power_on()` now writes
+  SPM `0x10006000=0x0B160001` (project code), clears `MD1_PWR_CON[8]`,
+  sets `MD_SRAM_ISO_CON[0]`, clears `MD_EXTRA_PWR_CON[0]`.
+  Verified: `md1 sram on: cfg=00000001 pwr=0000000d iso=00000001 extra=00000000`
+  (was `pwr=0x10d iso=0 extra=1`). cfg upper bits are read-only.
+- **Runtime feature 10 (`MISC_INFO_CCCI`) now 0** (no seq check / no MD status polling), matching the
+  known-good 6293 bring-up.
+- **CCB(15)/DHL_RAW(16) marked NOT_SUPPORT** (stock `ccci_mdinit` fills the CCB control block first;
+  we don't). None of these changed the crash, so they are not the root cause.
+- `md_eint_force_err` module param added (answers every EINT query with -11 like the working MTK6739
+  port) - also no change, so the SIM1 success reply is NOT the trigger.
+- Device passwords: `root` and `alarm` = `<redacted>`; sudo NOPASSWD already set.
+
+### 32.8 Immediate next steps to get the exception reason
+1. The MD dies inside the "other core" (USIP/DSP) dump and never raises `D2H_EXCEPTION_INIT`.
+   To see the assert we need the MD to finish the dump: the CCCI exception path uses the MD-side
+   `ccci_exception_handshake/ccci_except_ack` (symbols exist) - the AP must run the
+   `HIF_EX_*` handshake when the MD signals; we never get the signal because it dies first.
+2. Therefore find the **first faulting PC**: the trace shows `ESAL_AR_STK_Unsolicited_Set+0x132`
+   (a Nucleus stack function) right before the exception entry -> suspect **stack fault/overflow**
+   in the init task. `ESAL_AR_STK_*` symbols and the exception record are the place to dig.
+3. Alternative: force the MD to dump to the AP by making `ccci_excep_dbg_logging_InHS2` run - this
+   symbol exists in the firmware and is specifically for exception logging during HS2.
+4. Re-check MD1 SRAM/DSP SRAM power: only the MCU SRAM bit was fixed; the USIP/DSP may need its own
+   SRAM/clock bit (the dump failure is in USIP code).
+
+### 32.9 VERIFIED: the DSP sub-images are NOT missing — no LK changes needed
+Concern raised: LK loads modem sub-images (`md1dsp`, `md1arm7`, `md1ramdisk`, `l1core`) and we
+replaced the `boot` partition with U-Boot.  Checked all three places:
+
+1. **Stock boot.img** (`ke7_dump/boot.img`, 32 MB): ANDROID! v2 header, kernel (0x800, with the DTB
+   appended at 0x8b209e), gzip ramdisk (0x8cf800), `second_size=0`, dtb_size=2.  Ramdisk content is
+   the standard Android ramdisk (`init`, `fstab.mt6768`, avb keys...).  **No modem images.**
+2. **LK** (`flash_images/lk_patched.img`) contains the strings `md1img, md1dsp, md1arm7, md3img,
+   scp1, scp2, spmfw` — but only as a generic partition-name table.  The device's GPT has **only
+   `md1img`** (no `md1dsp` partition).
+3. **md1img partition** (57,860,848 bytes) contains the sub-image as a container section:
+   `md1dsp` header @0x16a3850 (magic 0x58881688, size 0x69811c, name "md1dsp"), payload @0x16a3a50
+   starting with `MMM\x01` + `FILE_INFO` (size 0x698000, "DSP!" at +0x114).  `md1arm7` /
+   `md1ramdisk` do **not** exist for MT6768.
+
+**Runtime proof**: a kernel scan of the MD reserved area (0xae000000, 0x7e00000) for `FILE_INFO`:
+```
+DSP FILE_INFO @md_resv+0x408     size=0x1546480   <- md1rom payload (at 0xae000400)
+DSP FILE_INFO @md_resv+0x7000008 size=0x698000    <- md1dsp payload (at 0xb5000008)
+```
+So LK **did** load the DSP image at **0xB5000000**, size 0x698000, and the modem image at 0xae000000.
+Nothing was lost by flashing `boot`; a custom LK is not needed.
+
+`md1img` was never reflashed and is intact.  The `boot` partition only ever held kernel+ramdisk+DTB.
+
+### 32.10 So the crash is NOT a missing image
+The MCU still ends up in `INT_EnterExceptionForOtherCore` / `INT_GetExlog` /
+`INT_GetUsipScq16MCUViewMappingInfo` (the USIP/DSP exception-dump path) and never signals the AP.
+Relevant firmware symbols found in DbgInfo:
+```
+90d6960c MD_TOPSM_IsUsipPowerOn      90d696d8 MD_TOPSM_USIP_SW_Control
+90da26f4 ex_wait_init_usip           90da3038 ex_init_usip
+90da389c usip_deactive_done_check    90da3bc4 usip_activate / 90da3c80 usip_deactivate
+90da497c dsp_FillBootPattern         90da49b4 dsp_FillBootProgress
+9093b270 ex_init_dsp_exrecord        90da35d0 query_usip_pc
+```
+i.e. the MCU waits for the USIP to reach a boot/active state and dumps it when it doesn't.
+`0x200D0000` (TOPSM / PSMCUSYS SRAM) reads back 0x00000001 for every word via /dev/mem (dummy
+window, not usable from userspace).  The AP driver only ioremaps this block and never uses it
+(same in the vendor tree).
+
+Next: find why the USIP never reaches the expected state (power/clock/MPU), or make the AP run the
+CCCI exception handshake so the MD can finish the dump and report the assert.
+
+### 32.11 New tooling: `mempeek` module (read modem DRAM without rebooting)
+`cellular-port/mempeek/mempeek.c` (built like the other modules, `insmod` any time — it is NOT
+`ccci`, so the "never rmmod+modprobe ccci" hazard does not apply):
+```
+make -C linux M=$PWD/cellular-port/mempeek ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules
+scp mempeek.ko root@<ip>:/tmp/
+insmod /tmp/mempeek.ko addr=0xAE000000 len=0x7E00000 mode=<0|1|2|3> [value=0x...] [key=...]
+```
+* mode 0 = hex dump (16 B/line), 1 = ASCII runs, 2 = scan for a u32, 3 = CRC32, 4 = filtered strings.
+* `rmmod mempeek` then `insmod` again to change parameters (safe).
+* Uses `__va()` because md_resv is normal RAM in the linear map; `ioremap()` refuses it and
+  `/dev/mem` returns `EPERM` for it.
+This replaces a 4-minute reboot cycle with a ~1 s test.
+
+### 32.12 The DSP image is intact — negative result, important
+`crc32_le` over `0xB5000000 + 0x698000` (the md1dsp payload in DRAM) =
+**0x7e736dd0**, identical to `zlib.crc32(md1img.img[0x16a3a50 : +0x698000])`.
+So LK's copy is byte-perfect **and the MCU never writes a single byte into the DSP image region**
+(any runtime write would change the CRC).  Anything found inside `0xB5000000..0xB5698000` is
+**image data**, not runtime state.
+
+**Ruled out (do not repeat):** the words `0x62935566` / `0x67aaaa80` / `0x070a21a8` at
+`0xB509DAF0`/`0xB509E000`/`0xB509E028` are **constants in the image file** (verified at file offsets
+0x1741a50 / 0x1741a78 / 0x1741540), *not* a USIP handshake.  An earlier "4 of 6 cores never
+acked" interpretation was wrong.
+
+### 32.13 Modem-side register blocks are only reachable through ATF (SMC)
+`mdreg_write32(reg_id, value)` in `mt6768/md_sys1_platform.c` is an
+`arm_smccc_smc(MTK_SIP_KERNEL_CCCI_GET_INFO, reg_id, value, ...)` call, i.e. **ATF** performs the
+access.  `enum MD_REG_ID` exposes only 12 fixed registers:
+`AP_MDSRC_REQ, PC_MONITOR, PLL_REG, BUS, MDMCU_BUSMON, MDINFRA_BUSMON, ECT, TOPSM_REG, MD_RGU_REG,
+OST_STATUS, CSC_REG, ELM_REG` — there is **no offset parameter**, so we cannot read arbitrary
+TOPSM/USIP registers through it.
+Direct access results (all useless):
+* `/dev/mem` mmap of any `0x2000_0000`-space MD register returns `0x00000001` for every word.
+* `ioremap()` of `0x0D0D0000` (would-be TOPSM alias) reads all-zero; `0x0D1D0000` reads `deaddead`.
+* `ioremap(0x0E630400)` (USIP ungate alias) reads DRAM garbage.
+* The only AP-visible MD register block that works is the PC monitor at **0x0D0D9000**.
+The vendor mt6768 driver has **no USIP/TOPSM access at all** (only mt6853 has `ap_md_reg_dump.c`
+with a USIP block at `0x0D104400`), so the AP is not expected to touch DSP power on this SoC.
+
+### 32.14 Firmware constants recovered from the leak (sst headers)
+From `mcu/common/service/sst/include/`:
+```
+md32_boot.h:      MD32_MAGIC_KEY      0x62930000
+                  MD32_USIP0_TH0_BTSLV 0x400   MD32_USIP0_TH1_BTSLV 0x404
+                  MD32_USIP1_TH0_BTSLV 0x408   MD32_USIP1_TH1_BTSLV 0x40C
+                  MD32_PM 0x00380000  MD32_DM 0x003E0000  MD32_PERI_CTRL 0x351000
+us_excep_hdlr.h:  USIP_SCQ16_EX_INIT_PATTERN 0x62935566
+                  USIP_SCQ16_EX_SYNC_TIMEOUT  0x200000
+                  USIP0_APB_BASE 0xA0084000, USIP1_APB_BASE 0xA0085000
+us_excep_hdlr_format.h: USIP_SCQ16_EXCEPTION_ASSERTION = 0x45584300
+                  USIP_SCQ_EXCEPTION_RECORD_T = { u32 core_num; {u32 type, u32 stat,
+                    union { {u32 line, p1, p2, p3, char file[64]} assert;      (80 B)
+                            {u32 status, pc, lr, addr, code1, code2, u8 section} fatal; } } [6]; }
+usip_power_test.h (MT6763 addrs): USIP_UNGATE_ADDR_U0..U3 = 0xA1630400..0x40C (0=run, 1=gated)
+dsp_control.h:    USIP0_MON_PC = BASE_MADDR_MDMCU_USIP_INT_DBG + 0x20010
+```
+Scans for `0x45584300` (assertion record) and `0x6293beef` (core-end marker) over the **whole**
+`md_resv` (126 MB, 33,030,144 words) both returned **not found** → no DSP exception record exists in
+AP-visible memory.
+
+### 32.15 Other confirmations
+* `MD_GENERATION = 6293` matches the vendor tree (`mt6768/ccci_config.h`), so the feature
+  decisions (`MD_USIP_SHARE_MEMORY` = NOT_SUPPORT, `SMEM_USER_RAW_USIP` size 0) are vendor-correct.
+* `md1img` section table (23 sections): `md1rom` @0, `md1dsp` @0x16a3850, `md1_drdi` @0x1547be0,
+  `md1_dbginfodsp` @0x1d4c710, `md1_dbginfo` @0x1e4c080, `md1_mddb` @0x1fa3250,
+  `md1_mdmlayout` @0x2f89890, `md1_file_map` @0x372de10.  **No `md1arm7`, no `md1ramdisk`.**
+  `md1_file_map` is only a `section=debughfile.bin` name table; `md1_mdmlayout` is a **text** OTA
+  trace description (`###### VER 2.0 #####`, `OTA_TRACE_ID_OFFSET...`) — neither carries load
+  addresses.
+* `L1_RGU_BASE (0x26010000)` is marked "AP use" in `modem_reg_base.h` but is **unused in both our
+  port and the vendor tree** → not the missing step.
+
+### 32.16 PC trace of the stuck MCU (512 samples, resolved with 95,602 symbols)
+Chronological head of the trace (oldest first, `pcmon` words 0..~60):
+```
+Print_Filter_Setting+0x12
+DSP_IsFirstMpuSettingDone+0x72
+INT_GetUsipScq16MCUViewMappingInfo
+Dsp_Logging_Init+0x60 / +0x56  (repeated 4x, args 0x00010000/0x00020000/0x00030000)
+Dsp_Logging_Init+0x72
+Print_Filter_Setting+0xc
+INT_GetExlog+0xa / +0x14
+ESAL_AR_STK_Unsolicited_Set+0x122/0x12c/0x132
+INT_EnterExceptionForOtherCore / INT_EnterExceptionForOtherCore+0x10
+INT_GetExlog+0x8 / +0xa / +0x14  ... (loops)
+```
+So the *last normal work* was **DSP logging initialisation** (`Dsp_Logging_Init` per core,
+`DSP_IsFirstMpuSettingDone`, `INT_GetUsipScq16MCUViewMappingInfo`), and the MCU then entered the
+"other core" (USIP) exception path and stays there.  `ESAL_AR_STK_Unsolicited_Set` is the Nucleus
+API that installs an **unsolicited stack + entry function** (`esal_extr.h`: `(start, end,
+entry_fn)`), i.e. the dump runs on its own stack — it is not itself the fault.
