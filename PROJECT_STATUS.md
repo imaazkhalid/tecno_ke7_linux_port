@@ -804,6 +804,19 @@ wiped and its `lk`/`boot` no longer match the device, so it is **not** a restore
 * After stock boots: unlock is already present, so patch `boot` with Magisk (or flash a rooted
   `boot`) and disable vbmeta verification to obtain root.
 
-### 33.5 Current background jobs
-* `firmware/KE7_stock_200617V060.zip` download (curl, resumable).
-* `backup/arch_state_20261025/rootfs.tar.zst` + `esp.tar.zst` (tar over SSH | zstd).
+### 33.5 Backup status — COMPLETE
+`backup/arch_state_20261025/` = **3.6 GB**, verified:
+| Artefact | Size | Check |
+|---|---|---|
+| `mmcblk0p{1..36,40,41,42}.bin` | 39 files, ~1.35 GB | sizes = `blockdev --getsize64` |
+| `mmcblk0boot0.bin`, `mmcblk0boot1.bin` | 4 MiB each | md5 `a7e48ea81d65d918520ad83576814224` |
+| `gpt_primary.bin`, `gpt_backup.bin` | 17408 B each | — |
+| `rootfs.tar.zst` | 2.4 GiB compressed (6.28 GiB raw) | `zstd -t` OK, 124,424 entries |
+| `esp.tar.zst` | 50 MiB (99.7 MiB raw) | `zstd -t` OK, contains `EFI/BOOT/BOOTAA64.EFI`, `Image`, DTBs |
+
+Only skipped entries were live sockets (gpg-agent, ibus dbus) and one journal file that changed
+during the read — both harmless.  Restore procedure: `restore_arch.sh`.
+
+### 33.6 Stock ROM download
+`firmware/KE7_stock_200617V060.zip` — 2,636,943,405 B, resumable curl from the signed MediaFire
+URL.  Peaked at ~5.3 MB/s once the rootfs tar stopped sharing the link.
