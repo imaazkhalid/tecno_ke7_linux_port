@@ -738,3 +738,72 @@ So the *last normal work* was **DSP logging initialisation** (`Dsp_Logging_Init`
 "other core" (USIP) exception path and stays there.  `ESAL_AR_STK_Unsolicited_Set` is the Nucleus
 API that installs an **unsolicited stack + entry function** (`esal_extr.h`: `(start, end,
 entry_fn)`), i.e. the dump runs on its own stack — it is not itself the fault.
+
+---
+
+## 33. PIVOT (2026-10-25): freeze mainline state, go stock Android, mine it, return later
+
+### 33.1 Decision
+The DSP/USIP does not boot under the mainline kernel and the MCU spins forever in
+`INT_EnterExceptionForOtherCore`.  All AP-side configuration now matches the vendor (see §32), the
+images are byte-perfect and fully loaded, and the firmware is encrypted, so there is no remaining
+AP-side lever to pull blind.  Plan agreed with the user:
+
+1. **Back up the current mainline state** so we can return to it exactly.
+2. **Flash a genuine stock Tecno KE7 ROM** (Android 10, build `KE7-H693GHIJKM-Q-GL-200617V060`),
+   keeping the bootloader **unlocked (orange state)**.
+3. **Root it**, then harvest ground truth from a *working* Android: kernel logs, `dmesg`, vendor
+   driver behaviour, power/clock sequencing, MD/DSP bring-up, NVRAM/RF calibration state.
+4. **Return to mainline** with that knowledge.
+
+### 33.2 What was backed up (authoritative snapshot)
+`backup/arch_state_20261025/` — dumped live over SSH from the running Arch system:
+* `gpt_primary.bin`, `gpt_backup.bin` (34 sectors each, 17408 B).
+* Raw dumps `mmcblk0pNN.bin` for **p1..p36, p40, p41, p42** (exact `blockdev --getsize64` sizes,
+  verified after transfer).
+* `rootfs.tar.zst` (p43 `/`, `--one-file-system`, excludes proc/sys/dev/tmp/run/mnt/media/boot).
+* `esp.tar.zst` (p40 `/boot`).
+* Skipped on purpose: **p37 `super`, p38 `cache`, p39 `tranfs` — verified 100 % zero** (read 64 MB,
+  zero non-NUL bytes; Android system is gone, which is why a full stock ROM is required).
+
+Verified identities:
+| partition | md5 | meaning |
+|---|---|---|
+| p30 `boot` | `fda47596d4db7ddc1e9273d187f77682` | == `boot-uboot-mdclk.img` (our U-Boot + MD clock fix) |
+| p18 `md1img` | `f399bc7754f1c736cef3db81748a5efb` | first 57,860,848 B == `flash_images/md1img.img` (`c6e068af…`) |
+| p27 `lk` | `436c585cb60f7d2242c52d7a19eb9f10` | current on-device LK — **matches neither** `backup/lk.bin`
+(`b2d1236c…`) nor `flash_images/lk_patched.img` (`d4ad3eb9…`) |
+| p28 `lk2` | `436c585cb60f7d2242c52d7a19eb9f10` | identical to `lk` |
+| p16 `seccfg` | `51333e3185cb22375767728444a95a90` | current (unlocked/orange state); first 512 B differ from
+`flash_images/seccfg_unlocked.bin` |
+
+**Consequence:** the old `backup/` (Oct 22) was taken *after* the data partitions had already been
+wiped and its `lk`/`boot` no longer match the device, so it is **not** a restore source.  Only
+`arch_state_20261025/` is authoritative.
+
+### 33.3 Stock ROM source
+* Hovatek thread 35594 ("Tecno Spark 6 KE7 Stock ROM") lists the factory files, but every MEGA link
+  is **truncated in the HTML** (`…IXqCMgMz6r...VEgk7qr-TM`), so it is unusable for guests.
+* Working mirror: `mobileguru4.com` → MediaFire
+  `0t6wuhgnqt7jzwc` → `Tecno Spark 6 (KE7-H693GHIJKM-Q-GL-200617V060)_MobileGuru4.com.zip`,
+  **2,636,943,405 bytes**, downloaded to `firmware/KE7_stock_200617V060.zip` (resumable direct link
+  from the MediaFire page, `accept-ranges: bytes`).
+* MediaFire hides the page behind Cloudflare for `curl`; a real browser session is needed to obtain
+  the signed `download####.mediafire.com/...` URL.
+
+### 33.4 Flash strategy (once the zip is extracted)
+* Use **`mtkclient` / Kamakiri** (BROM exploit) — bypasses the vendor DA, which is the only way to
+  write `lk`/`preloader`/`boot` on a locked-down unit.
+* **Do NOT flash `seccfg`** from the stock package: that is what re-locks the bootloader.  Keep the
+  current unlocked `seccfg` (or re-flash `seccfg_unlocked.bin`) to preserve the orange state.
+* Expect the stock package to be a SP Flash Tool layout (`MT6768_Android_scatter.txt` + per-partition
+  images).  Map its partitions onto our GPT (`boot_para, proinfo, para, expdb, frp, metadata,
+  md_udc, nvcfg, nvdata, persist, protect1/2, tkv, recovery, misc, seccfg, sec1, md1img, spmfw,
+  scp1/2, sspm_1/2, gz1/2, nvram, lk, lk2, logo, boot, dtbo, tee1/2, vbmeta*, super, cache,
+  tranfs, esp, otp, flashinfo, rootfs`).
+* After stock boots: unlock is already present, so patch `boot` with Magisk (or flash a rooted
+  `boot`) and disable vbmeta verification to obtain root.
+
+### 33.5 Current background jobs
+* `firmware/KE7_stock_200617V060.zip` download (curl, resumable).
+* `backup/arch_state_20261025/rootfs.tar.zst` + `esp.tar.zst` (tar over SSH | zstd).
