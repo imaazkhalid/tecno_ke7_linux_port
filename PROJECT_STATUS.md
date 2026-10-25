@@ -945,7 +945,13 @@ gz1, gz2, sec1.
 original entry stays byte-identical (avoids the mode/ownership drift of extract→repack), then
 rebuilds the Android boot image with the same kernel+DTB, page-aligned (2048), recomputed SHA1 `id`.
 
-Injected into `flash_images/twrp_touch.img` (26,005,504 B):
+**Firmware choice matters:** the 2020 ROM's `vendor` carries `novatek_ts_fw.bin` md5
+`a6e03288da123e500ad0f132e84018e2`, but the **device's original** vendor dump
+(`ke7_dump/vendor/firmware/`) and the **mainline** rootfs (`/usr/lib/firmware/`, where touch
+actually worked) both carry md5 **`f3b27aef49ac43ec70407a8d8586cf97`**.  The device shipped with a
+newer build than the 2020 ROM, so the injected file is the **known-good `f3b27aef…`** one.
+
+Injected into `flash_images/twrp_touch.img` (26,007,552 B, md5 `8d1a41735ebd28955ba77779fb80da87`):
 ```
 lib/                                   (dir 0755)
 lib/firmware/novatek_ts_fw.bin         (118784, kernel direct path /lib/firmware)
