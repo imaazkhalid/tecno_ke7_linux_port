@@ -820,3 +820,52 @@ during the read — both harmless.  Restore procedure: `restore_arch.sh`.
 ### 33.6 Stock ROM download
 `firmware/KE7_stock_200617V060.zip` — 2,636,943,405 B, resumable curl from the signed MediaFire
 URL.  Peaked at ~5.3 MB/s once the rootfs tar stopped sharing the link.
+
+### 33.7 Stock package audit (2026-10-25)
+`firmware/KE7_stock_200617V060.zip` — md5 `fae0c8a27f6a40f21ab404dd31994b6b`, `unzip -t` clean.
+Real **SP Flash Tool package**, 42 files, 4,616,418,069 B uncompressed, extracted to
+`firmware/stock/Tecno Spark 6 (KE7-H693GHIJKM-Q-GL-200617V060)_MobileGuru4.com/`.
+Contents: `MT6768_Android_scatter.txt`, `PGPT`, `preloader_ke7_h693.bin`, `lk.img`, `boot.img`,
+`recovery.img`, `dtbo.img`, `md1img.img`, `super.img`, `cache.img`, `tranfs.img`, `userdata.img`,
+`tee.img`, `tkv.img`, `scp.img`, `spmfw.img`, `sspm.img`, `vbmeta*.img`, `logo.bin`, APDB, MDDB.
+
+**Build identity confirmed against our device dumps (md5):**
+| image | result |
+|---|---|
+| `md1img.img` | **MATCH** `c6e068af…` == our p18 prefix → same modem firmware |
+| `dtbo.img`, `tee.img`, `spmfw.img`, `scp.img`, `sspm.img` | **MATCH** our p31/p32/p19/p20/p22 |
+| `lk.img` `db6bb650…` | differs (device LK is `436c585c…`, backup was `b2d1236c…`, `lk_patched` `d4ad3eb9…`) |
+| `logo.bin` | differs (we had replaced it with the Arch logo) |
+| `tkv.img` | differs → **device-unique TEE key vault, do not flash** |
+
+**`PGPT` is only a template, not a flashable table**: `userdata` has `first=0,last=0` (512 B) and the
+header has `last_usable=0`. Flashing it would create a 512-byte `/data` and break Android.
+→ We keep the on-device GPT and only **rename p43 `rootfs` → `userdata`**
+(`parted -s /dev/mmcblk0 name 43 userdata`, verified in the raw GPT and by `lsblk`). All other
+partitions already exist with the stock sizes (`otp`/`flashinfo` differ by 512 B only).
+
+**Stock fstab (from the ramdisk of `boot.img`, `fstab.mt6768`):**
+* `/data` = `/dev/block/platform/bootdevice/by-name/userdata`, **f2fs**,
+  `wait,check,formattable,quota,resize,reservedsize=128m,...` → Android will format it.
+* `/metadata` = `by-name/md_udc` (not the `metadata` partition).
+* Also mounts `md1dsp` by name — **no such partition exists in the scatter** (the DSP image is the
+  `md1dsp` section inside `md1img`, as established in §32.9).  Vestigial fstab entry.
+* `system`/`vendor`/`product` are logical, from `super` with AVB.
+
+**Sparse images**: `super.img`, `cache.img`, `tranfs.img`, `userdata.img` are Android sparse
+(`0xED26FF3A`). `mtkclient` writes raw bytes, so they were expanded with `simg2raw.py`:
+* `firmware/stock/super.raw` = 5,242,880,000 B (exactly the `super` partition), md5 `9735be00…`,
+  LP geometry magic `0x616c6f67` verified at offset 0x1000.
+* `firmware/stock/cache.raw`, `tranfs.raw` = 314,572,800 B each.
+
+### 33.8 Flash list (final)
+Flash: `super.raw`, `boot.img`, `recovery.img`, `md1img.img`, `dtbo.img`, `logo.bin`,
+`tee.img`→tee1/tee2, `scp.img`→scp1/2, `sspm.img`→sspm_1/2, `spmfw.img`,
+`vbmeta*.img`, `cache.raw`, `tranfs.raw`, 4 MiB zeros→`userdata`, 4 MiB zeros→`misc`.
+
+**Never flash:** `preloader` (device `AND_SECRO` hash), `seccfg` (orange state), `lk`/`lk2`
+(current LK proven to boot unlocked; the ROM LK is a different build), `tkv` (device-unique),
+`nvram`, `nvdata`, `persist`, `protect1/2`, `otp`, `flashinfo`, `md_udc`, `boot_para`, `proinfo`,
+`para`, `expdb`, `frp`, `metadata`, `nvcfg`, `gz1`, `gz2`, `sec1`.
+
+Script: `flash_stock.sh` (pre-flight GPT check, all writes, zero userdata/misc, reset).

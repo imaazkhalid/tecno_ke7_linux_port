@@ -41,7 +41,7 @@ def parse_scatter(path):
     entries, cur = [], {}
     for line in open(path, encoding="utf-8", errors="replace"):
         line = line.strip()
-        m = re.match(r"-\s*([A-Za-z_0-9]+)\s*:\s*(.*)$", line)
+        m = re.match(r"-?\s*([A-Za-z_0-9]+)\s*:\s*(.*)$", line)
         if not m:
             continue
         k, v = m.group(1), m.group(2).strip()
@@ -74,13 +74,17 @@ def main():
             print("   ", n, z.getinfo(n).file_size)
         return 0
 
-    os.makedirs(args.out, exist_ok=True)
-    print(f"\nextracting to {args.out} ...")
-    z.extractall(args.out)
+    scpath = os.path.join(args.out, sc[0])
+    if os.path.exists(scpath):
+        print(f"\nalready extracted: {args.out}")
+    else:
+        os.makedirs(args.out, exist_ok=True)
+        print(f"\nextracting to {args.out} ...")
+        z.extractall(args.out)
 
     print(f"\n{'partition':<18}{'region':<14}{'size':>12}  {'file':<28} flags")
     print("-" * 96)
-    for e in parse_scatter(os.path.join(args.out, sc[0])):
+    for e in parse_scatter(scpath):
         name = e.get("partition_name", "?")
         fn = e.get("file_name", "")
         region = e.get("region", "?")
