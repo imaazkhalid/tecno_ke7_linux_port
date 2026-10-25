@@ -20,6 +20,7 @@
 8. [Standard UEFI & systemd-boot Implementation](#8-standard-uefi--systemd-boot-implementation)
 9. [Zero-OTG USB Gadget Networking](#9-zero-otg-usb-gadget-networking)
 10. [Step-by-Step Bring-up Checklist](#10-step-by-step-bring-up-checklist)
+30. [MT6768 Power/Clock Internals — Vendor-Kernel Register Research](#30-mt6768-powerclock-internals--vendor-kernel-register-research-oct-25-2026)
 
 ---
 
@@ -928,3 +929,186 @@ scp -F /dev/null -o StrictHostKeyChecking=no \
 
 
 
+
+### 30.16 THE FIX: INFRA_AO_MD_SRCCLKENA = 0x21 (Oct 25, 2026)
+
+**The root cause is identified and the fix is known.**
+
+The vendor kernel `md_cd_power_on()` writes `0x21` to `INFRA_AO_MD_SRCCLKENA` (INFRACFG_AO base `0x10001000` + offset `0xF0C`) during step 4 of modem power-on. This enables the MD source clock, which includes the **EINT controller clock**.
+
+**Without this write:** The modem's EINT controller clock stays gated. When the modem firmware writes `EINT_SRC` to configure `src_pin=1` (GPIO47 for SIM1 hot-plug), the bus hangs because the EINT controller clock is gated.
+
+**The fix is applied in U-Boot** (`arch/arm/mach-mediatek/mt6768/init.c`, `board_late_init()`) so the clock is enabled **before** the modem firmware even starts:
+
+```c
+#define INFRACFG_AO_BASE       0x10001000
+#define INFRA_AO_MD_SRCCLKENA  (INFRACFG_AO_BASE + 0xF0C)
+
+static void mt6768_enable_md_src_clock(void)
+{
+    writel(0x21, INFRA_AO_MD_SRCCLKENA);
+}
+```
+
+This is called from `board_late_init()` so the clock is enabled **before** the modem firmware loads and starts executing.
+
+U-Boot rebuilt with `aarch64-linux-gnu-gcc` (700576 bytes). **Needs to be flashed to the correct boot partition** (likely p1, p2, or p4).
+
+Once flashed, the modem should:
+1. Complete Handshake 1 ✓
+2. Answer 12 SIM EINT RPCs ✓
+3. **Write EINT_SRC without bus hang** (EINT clock enabled!)
+4. Issue DEBOUNCE/POLARITY/SENSITIVITY/SOCKET queries
+5. Power VSIM1/2
+6. Reach READY state (`md1:2`)
+
+---
+
+## Boot Chain (KE7 / MT6768) — verified Oct 25 2026
+```
+BROM -> Preloader -> LK (`lk` p27, fallback `lk2` p28) -> U-Boot (`boot` p30, Android bootimg) -> Linux (ESP)
+```
+- `lk`/`lk2` = Little Kernel. **Never write U-Boot raw to `lk`.**
+- `boot` p30 (32 MB) = `ANDROID!` bootimg whose kernel slot is **gzip(u-boot.bin)**, plus original ramdisk + DTB, plus AVB hash footer (`--partition_name boot --partition_size 33554432`).
+- LK gunzips the kernel slot; raw Image/uboot there => lk_crash. Missing ramdisk or AVB footer => lk_crash.
+- Known-good images: `flash_images/lk_patched.img` (lk + lk2), `boot-uboot.img` (boot).
+- Pack tool: `mt6768-mainline-notes/scripts/pack-uboot-boot.py <template.img> u-boot.bin out.img` then `venv/bin/avbtool add_hash_footer --image out.img --partition_name boot --partition_size 33554432 --algorithm NONE`.
+- MD EINT clock: write `0x21` to `0x10001F0C` (INFRA_AO_MD_SRCCLKENA) before modem boot; implemented in U-Boot `board_late_init()` (`mt6768_enable_md_src_clock()`), verified in the disassembly.
+
+---
+
+## 30. MT6768 Power/Clock Internals — Vendor-Kernel Register Research (Oct 25, 2026)
+
+Source trees (public, cross-checked against each other; the two MT6768 trees carry an **identical
+3999-line** `clk-mt6768-pg.c`):
+- `MiCode/Xiaomi_Kernel_OpenSource`, branch **`merlin-r-oss`** (Redmi Note 9, MT6768, vendor 4.14)
+- `LineageOS/android_kernel_xiaomi_mt6768`, branch **`lineage-20`** (vendor 4.19)
+
+### 30.1 `scp-sys-md1-main` is NOT a clock-gate bit on MT6768/MT6765
+There is **no** `mtk_gate_regs` / `GATE_SCP_SYS()` entry for `SCP_SYS_MD1` anywhere in the MT6768
+tree (`drivers/clk/mediatek/clk-mt6768.c` has zero `scp-sys` hits). Instead:
+
+- `include/dt-bindings/clock/mt6768-clk.h:406` → `#define SCP_SYS_MD1 0` (`SCP_NR_SYSS 13`)
+- `arch/arm64/boot/dts/mediatek/mt6768.dts:436` →
+  `scpsys: scpsys@10001000 { compatible = "mediatek,scpsys","syscon"; reg = <0x10001000>,<0x10006000 spm>,...; #clock-cells = <1>; }`
+- `mdcldma` node: `clocks = <&scpsys SCP_SYS_MD1>, ...; clock-names = "scp-sys-md1-main", ...`
+- `drivers/clk/mediatek/clk-mt6768-pg.c:3476` → `PGATE2(SCP_SYS_MD1, pg_md1, NULL, NULL, NULL, SYS_MD1)`
+- `clk-mt6768-pg.c:3346` → `mt_power_gate_ops` (`prepare = pg_prepare`, `unprepare = pg_unprepare`)
+- `pg_prepare()` (line ~3245) calls `enable_subsys(pg->pd_id, MTCMOS_PWR)` and then
+  `enable_subsys(pg->pd_id, MTCMOS_BUS_PROT)`.
+
+So the "clock" is a **virtual power-gate clock**; enabling it runs the MD1 MTCMOS power-on sequence.
+`0x10006000` is the SPM base (`POWERON_CONFIG_EN` at +0x0, bit0 = SPM register-control enable,
+bits[31:16] = project code 0xB16) — **not** a gate register. The `0x10006000 == 0x1` observation in
+§31.9 is just `POWERON_CONFIG_EN[0]`, not evidence of a gate.
+
+Vendor probe **powers MD1 off first** on purpose: `clk-mt6768-pg.c:3617`
+`disable_subsys(SYS_MD1, MTCMOS_PWR);` ("per modem owner request, disable modem power first").
+The ccci driver later does `clk_prepare_enable(clk_table[0].clk_ref)` = full power-on.
+
+### 30.2 MD1 MTCMOS power-on sequence (vendor)
+SPM base `0x10006000`; `infracfg_ao` base `0x10001000`:
+
+| Reg | Addr | Bits used |
+|---|---|---|
+| `MD1_PWR_CON` | `0x10006320` | bit0 RST_B, bit1 ISO, bit2 ON, bit3 ON_2ND, bit4 CLK_DIS, **bit8 SRAM_PDN**, bit12 SRAM_PDN_ACK |
+| `PWR_STATUS` | `0x10006180` | bit0 = MD1 |
+| `PWR_STATUS_2ND` | `0x10006184` | bit0 = MD1 |
+| `MD_SRAM_ISO_CON` | `0x10006394` | **bit0 = 1 on power-on** (0 on power-off) |
+| `MD_EXTRA_PWR_CON` | `0x10006398` | **bit0 = 0 on power-on** (1 before power-off) |
+| `INFRA_TOPAXI_PROTECTEN_SET/CLR` | `0x100012A0/0x100012A4` | MD1 step1 bit7, step2 bits3\|4 |
+| `INFRA_TOPAXI_PROTECTEN_1_SET/CLR` | `0x100012A8/0x100012AC` | MD1 step2_1 bit6 |
+| `INFRA_TOPAXI_PROTECTEN_STA1 / _STA1_1` | `0x10001228 / 0x10001258` | ack bits |
+
+Vendor `spm_mtcmos_ctrl_md1_pwr(STA_POWER_ON)` (`clk-mt6768-pg.c:953-1035`) order:
+1. `MD1_PWR_CON &= ~RST_B`
+2. `|= PWR_ON`
+3. `|= PWR_ON_2ND`
+4. poll `PWR_STATUS[0]` and `PWR_STATUS_2ND[0]` == 1
+5. **`&= ~(1<<8)`  ← clear SRAM_PDN**
+6. `MD_SRAM_ISO_CON |= 1<<0`
+7. `&= ~PWR_ISO`
+8. `&= ~PWR_CLK_DIS`
+9. `|= PWR_RST_B`
+10. **`MD_EXTRA_PWR_CON &= ~(1<<0)`**
+
+Bus-protect release (`spm_mtcmos_ctrl_md1_bus_prot(STA_POWER_ON)`) clears PROTECTEN step2_0, step2_1,
+step1_0 (release ack not polled). LK does the same sequence in
+`lk/platform/mt6765/spm_md_mtcmos.c:93-125`.
+
+**"MODEM_TOP"/"MD_INFRA"/"MD1_SRAM" are not separate domains.** MDTOP registers are at
+`0x20140000` (`MDTOP_PLLMIXED_BASE`) and become accessible only when MD1 is powered; vendor ccci then
+runs `md1_pll_init()`. `MD1_SRAM` is bit8 of `MD1_PWR_CON` plus `MD_SRAM_ISO_CON[0]`. The
+`md1_pcore_sram_on()` code that pokes `0x200D0000` exists in MT6768 ccci but is inside `#if 0`
+(compiled out).
+
+### 30.3 `vmd1_pmic_setting_on/off` (MT6358)
+`drivers/misc/mediatek/pmic/mt6358/v1/pmic.c:30/50`:
+- `vmd1_pmic_setting_on()` writes `PMIC_RG_BUCK_VMODEM_VOSEL` only (restores the value captured at
+  PMIC probe by `record_md_vosel()`, `pmic/common/upmu.c:595`), then compares `PMIC_DA_VMODEM_VOSEL`.
+- Vendor API `mt6358_upmu_set_rg_buck_vmodem_vosel()` targets **`MT6358_BUCK_VMODEM_ELR0` = 0x15A6,
+  mask 0x7F** (mainline `include/linux/mfd/mt6358/registers.h:111` + `mt6358-regulator.c`).
+- `vmd1_pmic_setting_off()` is a **no-op** (log only). The rail's enable is `BUCK_VMODEM_CON0`
+  (`0x1588`) bit0, handled by the regulator framework, not by this function.
+- MT6359 variant additionally writes `VSRAM_MD_VOSEL = 0x4F` (993.75 mV).
+
+### 30.4 `spm_ap_mdsrc_req()`
+`drivers/misc/mediatek/base/power/spm/mt6768/mtk_spm_utils.c:85`:
+- increments/decrements a refcount and issues
+  `SMC_CALL(AP_MDSRC_REQ, 1/0, 0, 0)` = **SIP `MTK_SIP_KERNEL_SPM_AP_MDSRC_REQ`**
+  (`0x82000223 | 0x40000000` on arm64 = **0xC2000223**).
+- ack poll: `AP_MDSRC_REQ` = **`0x10006430`**, request bit0 (`AP_MDSMSRC_REQ`),
+  ack bit4 (`AP_MDSMSRC_ACK`); 3 ms settle if `PCM_REG13_DATA.MD1_APSRC_REQ == 0`.
+- ccci wrapper: `md_cd_lock_modem_clock_src(locked)` calls it (mt6768 `md_sys1_platform.c:378`);
+  `md_cd_lock_cldma_clock_src()` is commented out.
+
+### 30.5 MD1 boot-status registers
+`drivers/misc/mediatek/eccci/mt6768/modem_reg_base.h:123-125`:
+`MD1_CFG_BASE 0x1020E300`, `BOOT_STATS0 +0x00`, `BOOT_STATS1 +0x04`.
+The AP kernel only **reads** them (mt6768 `md_sys1_platform.c:402-410`, dummy-read twice for
+AP/MD interface sync). Writer **not found** in any AP-side public source (LK image has no such
+strings; the values change while Linux runs → almost certainly written by the MD firmware itself).
+Observed `0x54430007` = ASCII `"TC"` + count 7, `0x53320000` = ASCII `"S2"`; most plausible meaning:
+S1→S2→S3 boot-stage markers, `TC n` = n tasks created. **UNCERTAIN** (inference only; no public doc).
+`MDPC` string: not found.
+
+### 30.6 LK (MT6765 public tree; device LK contains the same strings)
+- `lk/app/mt_boot/iothread.c:108` `do_load_modem()`: `ccci_load_modem_image()` → `md_power_down()`
+  → `md_power_control(mode)` → later `let_md_go()` writes `MD_BOOT_VECTOR_EN (0x20000024) = 1`.
+- `lk/platform/common/md/ccci_ld_md_core.c:504` `load_modem_image()`: loads main image from the
+  **`md1img`** partition ("md1rom"), then sub-images `md1dsp`, `md1arm7`, `md1ramdisk`, `l1core`
+  (from `boot`), into an mblock-reserved region (observed on KE7: base `0xae000000`, 0x07e00000).
+- `lk/dev/md_com/lk_load_md_wrapper.c:145`: writes `/chosen/ccci,modem_info_v2` (opaque blob from
+  the proprietary `update_lk_arg_info_to_dt()`); `lk/app/mt_boot/mt_boot.c:1178` calls it, and line
+  ~1190 also writes `/chosen/atag,mdinfo`.
+- `lk/platform/mt6765/dummy_ap.c:484` `md1_boot()`: PMIC setting → `spm_mtcmos_ctrl_md1(ON)` →
+  `md1_pre_access_md_reg()` → `POWERON_CONFIG_EN=0x0B160001`, `SPM_POWER_ON_VAL1=0x00215830`
+  (SRCLKEN_O1 force on) → `md1_pll_init()` (MDTOP 0x20140000) → disable MD WDT.
+- `md_common_setting()` writes `INFRA_AO + 0xF0C = 0x21` (MD SRCCLKENA).
+- End of boot: `md_power_down()` (`md1_off.c`) powers MD1 **off** and gates `AP_TOP_CLK_GEN+0`
+  bits 8/9, so Linux is expected to do a full power-on itself.
+
+### 30.7 Mainline 6.18 gap (this project)
+`drivers/pmdomain/mediatek/mt6768-pm-domains.h:35` MD1 domain:
+`ctl_offs 0x320`, `ext_buck_iso_offs 0x398/mask 1`, `sta_mask BIT(0)`, `sram_pdn_bits = 0`,
+bus-protect masks (BIT7 / BIT3|BIT4 / PROTECTEN_1 BIT6) — but:
+1. No `MTK_SCPD_EXT_BUCK_ISO` cap → **0x398 is never written** (ext_buck_iso code is dead).
+2. `sram_pdn_bits = 0` → **bit8 (SRAM_PDN) is never cleared**.
+3. `MD_SRAM_ISO_CON 0x394` is **not modelled at all** (never read/written).
+4. Mainline powers MD1 on at probe (`mtk-pm-domains.c:617` `scpsys_power_on()`), i.e. it never does
+   the vendor's "power off at probe, clean power-on on ccci request" cycle.
+5. Live snapshot (PROJECT_STATUS §31.12-D): `0x10006320 = 0x10D` ⇒ RST_B=1, ON=1, ON_2ND=1,
+   **SRAM_PDN bit8=1**; `0x10006398 = 0x00000001` ⇒ **MD_EXTRA_PWR_CON[0] still 1**;
+   vendor post-power-on values are `0x00D` and `0x398[0]=0`. Both are concrete, already-observed
+   deviations from the vendor golden sequence. `0x394` was not captured — must be read.
+   Causality for the HS2 stall is **unproven** (the MD core is demonstrably executing), but these are
+   the only MD1 power-state bits that differ from vendor.
+
+Minimal test (read-only first, via `/dev/mem`):
+```
+devmem 0x10006320 ; devmem 0x10006394 ; devmem 0x10006398 ; devmem 0x10006180 ; devmem 0x10006184
+```
+Vendor-expected: 0x320 bit8=0, 0x394 bit0=1, 0x398 bit0=0, 0x180/0x184 bit0=1.
+If 0x394 reads 0 or 0x398 reads 1, the mainline power-on is definitely incomplete.
+A fix belongs in `mt6768-pm-domains.h`/`mtk-pm-domains.c` (model SRAM_PDN + MD_SRAM_ISO + EXT_BUCK_ISO
+with vendor ordering), **not** in a blind single-register poke.
