@@ -1,6 +1,6 @@
 # Tecno Spark 6 (KE7 / MT6768) — Linux Bringup Project Status & Memory Bank
 
-**Last Updated:** October 25, 2026  
+**Last Updated:** October 28, 2026  
 **Primary Goal:** Fully functional Arch Linux ARM (aarch64) with GNOME Phosh, touchscreen, battery management, USB gadget networking, and internal MediaTek CONNSYS Wi-Fi (`wlan0`).
 
 ---
@@ -1116,3 +1116,1019 @@ Useful state notes:
   (charging mode), and persists roughly 20–30 s — long enough to run a tool against it.
 * After `meta2`, verify the phone actually booted Android (`getprop sys.boot_completed`); recovery
   has an almost empty property set and no `wlan0`.
+
+## 36. Retail ROM flashed OK; device now hangs after preloader (2026-10-25)
+
+### Retail ROM obtained and verified
+- Source: free MobiFirmware mirror, `KE7-H693HJKM-Q-GL-220729V478(MobiFirmware.com).zip`
+  (3,031,671,724 B). **First download had a real CRC error in `super.img`**
+  (`7z t` -> "Data Error"); a full re-download verified **"Everything is Ok"**.
+  Always run `7z t` before trusting a download.
+- Extracted to `firmware/stock_retail/KE7-H693HJKM-Q-GL-220729V478(MobiFirmware.com)/`.
+- Sparse images expanded with `simg2raw.py`:
+  - `firmware/stock_retail/super.raw`   5,242,880,000 B  md5 `70d553ebbcd53bc2507bc0e9fa1dbb07`
+  - `firmware/stock_retail/cache.raw`     314,572,800 B
+  - `firmware/stock_retail/tranfs.raw`    314,572,800 B
+- Retail scatter (`MT6768_Android_scatter.txt`) partition sizes and offsets match
+  the on-device GPT exactly (super sector 1310720 count 10240000).
+- Variant note: the Oct 22 `backup/dtbo.bin` is **all zeros** (taken after the wipe),
+  so it cannot be used to prove the variant. The device's original `md1img` matched
+  the **G-variant test build**; the retail `md1img` is a newer 57,014,816 B image.
+
+### flash_retail.sh — successful run (exit 0, 18:21:14 -> 18:34:59)
+20 partitions written over BROM/mtkclient:
+```
+super     sector 1310720  count 10240000   (100.0%, full 5,242,880,000 B)
+boot      sector 1157120  count 65536
+recovery  sector  545040  count 65536
+md1img    sector  643072  count 262144
+dtbo      sector 1222656  count 16384
+logo      sector 1140736  count 16384
+tee1/tee2 10240 each ; scp1/scp2 12288 each ; sspm_1/2 2048 each ; spmfw 2048
+vbmeta / vbmeta_system / vbmeta_vendor
+cache     sector 11550720 count 614400
+tranfs    sector 12165120 count 614400
+userdata  sector 13828096 (zeroed) ; misc sector 610576 (zeroed)
+reset sent
+```
+**Not** written (by design): preloader (boot0/boot1), **seccfg** (orange state kept),
+nvram, nvdata, persist, protect1/2, otp, flashinfo, tkv, **lk/lk2**, md_udc,
+boot_para, proinfo, para, expdb, frp, metadata, nvcfg, gz1/2, sec1.
+
+Two earlier attempts aborted: one accidental unplug at 1.6%, one pre-flight failure
+(mtkclient started <1 s after enumeration -> "BROM not reachable"). Fix in the script:
+retry `printgpt` up to 8x with 2 s gaps, and sleep 4 s after detecting `0e8d:0003`.
+
+### Current symptom: phone dead after reset
+- No screen, no adb (`adb devices` empty), no fastboot, **no `0e8d:0003`**.
+- USB **does** show `0e8d:2000  MT65xx Preloader` for ~3 s per plug event, then it
+  vanishes and the device stays off. So: **preloader alive, battery has charge,
+  BROM not being entered, nothing boots past `lk`**.
+- Leading hypothesis: we kept the **2020 G-variant test-build `lk`** but flashed the
+  **2022 retail** `boot`/`dtbo`/`vbmeta*`/`md1img`. That lk cannot hand off to the
+  new images -> hang, black screen, no USB re-enumeration.
+- Planned fix: write the **retail `lk` + `lk2`** (`lk.img`, 1,114,976 B,
+  md5 `fbe029d58a983b6dbd1ed4cf19aeb9d6`) once we regain BROM.
+  Reversible: current lk dumped in `backup/lk.bin` and `backup/arch_state_20261025/mmcblk0p27.bin`
+  (first 1,114,976 B md5 `2b918eea...` and `db4a1061...` respectively).
+
+### Useful artefacts
+- `flash_retail.sh`  — retail flash (retries pre-flight, 20 writes + reset)
+- `brom_check.sh`    — READ-ONLY: printgpt + dump lk/lk2/seccfg, for diagnosing
+- `firmware/stock_retail/bin/` — space-free symlinks used by the flash script
+- mtkclient `wo` command = write at **absolute** flash offset (`--offset`, `--length`),
+  usable to resume/split a 5 GB `super` write into chunks if a session drops.
+
+### 36b. RESOLVED — retail `lk`/`lk2` was the fix (18:48)
+- Root cause of the "dead after flash" state: we had kept the **2020 G-variant
+  test-build `lk`** while writing the **2022 retail** `boot`/`dtbo`/`vbmeta*`/`md1img`.
+  The old `lk` could not hand off to the new images -> black screen, no USB, no fastboot.
+- Key insight about BROM timing on this device: `0e8d:0003` is exposed for **only ~1 s**
+  on every power-up, then the preloader (`0e8d:2000`) takes over.
+  * A listener that slept 4 s after detecting BROM **always missed the window**
+    (that is why the pre-flight kept failing with "BROM not reachable").
+  * `Port.handshake()` polls every **0.3 s** and waits indefinitely, so the fix is to
+    **start mtkclient BEFORE plugging in** (pre-arm), not to react to the port appearing.
+- Fix applied with `flash_lk.sh` (pre-armed mtkclient, no sleep):
+  ```
+  Wrote lk.img  to sector 1132544  count 4096   (retail lk, md5 fbe029d5...)
+  Wrote lk.img  to sector 1136640  count 4096   (lk2)
+  reset
+  ```
+  DA log: `DA SLA is disabled`, `EMMC USER Size 0xe8f800000`, DA extensions at 0x4fff0000.
+- Result: **phone boots the retail ROM.** Orange state preserved (seccfg untouched),
+  preloader untouched.
+
+## 37. Retail ROM running, Magisk root, AT channel, WiFi MAC (2026-10-25 ~19:40)
+
+### Retail ROM verified on device
+```
+ro.build.fingerprint : TECNO/KE7-GL/TECNO-KE7:10/QP1A.190711.020/220729V478:user/release-keys
+ro.build.display.id  : KE7-H693HJKM-Q-GL-220729V478
+ro.build.date        : Sat Jul 30 00:19:42 CST 2022
+gsm.version.baseband : MOLY.LR12A.R3.MP.V118.11.P53
+ro.build.type        : user      ro.debuggable: 1
+```
+NOTE: `ro.product.test_tssi=1` and `ro.transsion.zzs.test=1` are ALSO set on the
+**retail** build — they were never the "internal test" marker. Only
+`ro.tran_test_version` differed (1 on the G test build, empty here).
+
+### Root: Magisk 27.0 (on-device patch + fastboot flash) — no BROM needed
+1. `adb push boot.img /sdcard/Download/`, `adb install Magisk-v27.0.apk`.
+2. In the Magisk app: Install -> "Select and Patch a File" -> `Download/boot.img`
+   -> produced `/sdcard/Download/magisk_patched-27000_XXXX.img`.
+3. `adb pull` it, then **fastboot** (real bootloader, `is-userspace: no`,
+   `unlocked: yes`, product `ke7_h693`):
+   `fastboot flash boot /tmp/opencode/magisk_patched.img` -> `fastboot reboot`.
+4. In Magisk: Settings -> Superuser access -> **"Apps and ADB"** (+ Grant on prompt).
+   Then `su -c id` -> `uid=0(root) ... context=u:r:magisk:s0`.
+   `adb root` is NOT usable on this ROM: it restarts adbd and the USB gadget never
+   re-enumerates (phone stays alive; replug returns adb as shell again).
+
+NOTE: the **bootloader fastboot works fine** and does NOT mangle partition names.
+The `_no` suffix bug was exclusive to **fastbootd** (`is-userspace: yes`).
+
+### AT channel (works on V118)
+```
+su -c 'setprop persist.vendor.service.atci.autostart 1'
+su -c 'setprop ctl.start atcid'          -> /dev/socket/adb_atci_socket
+su -c '/data/local/tmp/atci_cli AT'      -> OK
+```
+`atci_cli` rebuilt from `tools/atci_cli.c` (aarch64-linux-gnu-gcc -static -O2).
+
+IMEI state on V118:
+```
+AT+CGSN          -> OK (no IMEI string)
+AT+EGMR=0,7      -> +EGMR: ""      (IMEI1 empty)
+AT+EGMR=0,10     -> +EGMR: ""      (IMEI2 empty)
+AT+EGMR=?        -> +EGMR: (0,1),(0-5,7-15)
+AT+EGMR=1,7      -> ERROR          (syntax probe, ambiguous)
+AT+EGMR=1,7,""   -> ERROR
+```
+`custom_allow_at_write_imei()` (custom_l4_utility.c:728) returns **KAL_FALSE** when
+`__NVRAM_CRITICAL_DATA_SIGN_SUPPORT__` is defined (production), and KAL_TRUE only with
+`__MTK_INTERNAL_ENG_USER__`. So a production V118 write is expected to be refused;
+a definitive test needs a syntactically valid IMEI.
+
+### WiFi MAC (NVRAM warning gone)
+- After the flash `/data/vendor/macwifi` was gone and wlan0 fell back to
+  `00:08:22:xx:xx:xx` (MTK default) -> driver advertises `NVRAM WARNING: Err = 0x10`.
+- Fix: `printf '02:00:00:00:00:01' > /data/vendor/macwifi` (17 bytes, no newline),
+  `chown wifi:wifi`, `chmod 660`, then **reboot** (`wlan_assistant`, PID 751, only
+  runs at boot and writes the MAC into the WiFi NVRAM).
+- Verified after reboot: `wlan0` -> `02:00:00:00:00:01`.
+  `mBlacklistedSsids: {}` (runtime empty; the declared entry is a stale leftover in
+  `WifiConfigStore.xml`).
+- `wlan0` may later show a *different* randomized MAC per network — that is Android
+  per-SSID MAC randomisation, not an NVRAM problem.
+
+## 38. IMEI deep-dive on the retail ROM (2026-10-25 ~20:00)
+
+### Root + tools on device
+- Magisk 27 root works: `su -c id` -> `uid=0(root) context=u:r:magisk:s0`.
+  Requires Magisk setting **Superuser access = "Apps and ADB"** (+ Grant).
+  `adb root` is NOT usable (adbd restart kills the USB gadget).
+- `atci_cli` (static aarch64) at `/data/local/tmp/atci_cli`; AT works:
+  `su -c 'setprop persist.vendor.service.atci.autostart 1'`, `setprop ctl.start atcid`
+  -> `/dev/socket/adb_atci_socket`.
+
+### AT+EGMR is dead on BOTH modems
+```
+V118 (retail MOLY.LR12A.R3.MP.V118.11.P53):
+  AT+EGMR=0,7   -> +EGMR: ""      (empty)
+  AT+EGMR=1,7,"<valid Luhn IMEI>" -> ERROR   (nothing written)
+V114 (engineering MOLY.LR12A.R3.MP.V114.9.P1, flashed to test):
+  identical: write -> ERROR
+```
+`custom_allow_at_write_imei()` (custom_l4_utility.c:728) returns KAL_FALSE unless
+`__MTK_INTERNAL_ENG_USER__` is defined, and KAL_FALSE unconditionally when
+`__NVRAM_CRITICAL_DATA_SIGN_SUPPORT__` is defined (production). Neither modem build
+is an engineering-user build, so the gate is closed in both.
+
+### NVRAM storage facts (all verified on-device)
+- `nvdata` = `/dev/block/mmcblk0p9`, ext4, mounted at `/mnt/vendor/nvdata`.
+- Modem NVRAM files: `/mnt/vendor/nvdata/md/NVRAM/{NVD_IMEI,NVD_DATA,NVD_CORE,CALIBRAT,BACKUP}`.
+- Pulling 64 MB over `adb exec-out su -c cat` **corrupts** the image (su/pty translates
+  \n -> \r\n, +10,169 bytes). Workaround: `su -c dd ... of=/data/local/tmp/x`, chmod 644,
+  then `adb pull`. Clean image md5 `3f1c807378bdb549ee2166f26bc8c86f`.
+- Raw `nvdata` has **506 LDI records**. Header (little endian):
+  `"LDI\0" | lid u16 | items u16 | itemsize u32 | attr u24 | ...` payload at +0x40.
+- **IMEI candidate: LID 0xF00A, items=2, itemsize=0x20, attr=0x006081**, stored twice
+  (file `NVD_IMEI/NV0S_000`, raw offset `0xa01000`). 2 items = dual SIM.
+- Other `NVD_IMEI` file `NV01_000` is LID 0xF006 = `__NVRAM_LOCK_NO_`, attr 0x00608A.
+- Global MTK SW keys decrypt only the 0x608A record (LOCK). 0xF00A decrypts to garbage
+  with "mtk", "mtkv2" and "samsung" seeds and with RC4 variants -> per-device crypto.
+- `calc_checksum(data, n)` = `md5(data[:n])[:8] XOR md5[8:16][:8]` (mtk_crypto.py:114).
+  It is a **plain checksum, not a signature**.
+- **DA SEJ attempts fail**: `mtk da nvitem` with attr forced to 0x20 (HW_5G then
+  HW_ENCRYPTED fallback) never yields a checksum-valid plaintext.
+  OTP source: mtkclient takes 32 bytes at preloader offset `MMM\x01\x30`+0xC.
+
+### Useful AP-side components found in the retail ROM
+- `/vendor/lib64/hw/vendor.mediatek.hardware.nvram@1.1-impl.so` exposes
+  `readFileBylid`, `writeFileBylid`, `readFileByName`, `writeFileByName`
+  -> NVRAM can be written by LID from Android (no encryption in the HAL, it is a
+  byte mover: the WiFi MAC is stored in **plaintext** at nvdata 0x142c004).
+- `/vendor/bin/meta_tst` = full META/FT implementation (FT_NvramRestore_OP,
+  ATM_SWITCH_MODEM_TO_META, AT+EMETACFG=1, socket server). Not yet driven.
+- `/vendor/bin/nvram_daemon`, `/vendor/bin/misc_writer`, `/vendor/bin/atcid`.
+- `/mnt/vendor/nvdata/md/NVRAM/` is the live NVRAM; BACKUP dir holds copies.
+
+### WiFi MAC (done)
+`printf '02:00:00:00:00:01' > /data/vendor/macwifi` (17 B, no newline),
+`chown wifi:wifi`, `chmod 660`, then **reboot** (wlan_assistant runs only at boot).
+Verified: `wlan0` -> `02:00:00:00:00:01`.
+
+### Modem state right now
+**V114 engineering modem is flashed** (`MOLY.LR12A.R3.MP.V114.9.P1`).
+Retail V118 image to restore: `firmware/stock_retail/.../md1img.img`
+(57,014,816 B, md5 `90271f2882a971ace87332c5f198a1af`).
+`fastboot flash md1img` works on the bootloader (is-userspace: no, unlocked: yes)
+and partition names are NOT mangled there (the `_no` bug is fastbootd-only).
+
+## 39. IMEI: plaintext-record experiment FAILED (modem hangs) — 0xF00A is critical
+
+### What was tried
+Rebuilt the `0xF00A` record with `attr` forced to `0x000000` (i.e. "plaintext, do not
+decrypt") and a normal payload per item:
+`encode_imei(imei) + b"\x00\x00" + calc_checksum(data,0xA) + 14*0x00`  (0x20 B/item),
+keeping the original 0x10-byte trailing block. Wrote the whole 64 MB `nvdata` over
+BROM (`Wrote ... sector 280848 count 131072`, reset).
+
+### Result — modem does NOT accept plaintext critical data
+- After boot: `AT+EGMR`, `AT+CGSN`, `AT+CPIN?` all returned **`ERROR:No Modem`**.
+- `gsm.sim.state` empty; `ccci_fsm1` / `ccci_poll1` stuck in state **D** (uninterruptible).
+- The file `NVD_IMEI/NV0S_000` came back **byte-identical to what we wrote**
+  (attr 0x000000, our IMEI payload, original 0x10 tail) — i.e. the modem did not
+  re-encrypt and did not accept it; it hung on the record.
+- Recovery: pushed the original 144-byte file back
+  (`md5 3418979289a70db1b06f1c193ea769aa`), chown radio:radio, chmod 660, reboot ->
+  `AT` OK again, `+EGMR: ""`, SIM LOADED.
+
+**Conclusion:** `LID 0xF00A` (2 items x 0x20, attr 0x6081) is a **critical, validated**
+NVRAM item and almost certainly the IMEI record. The modem requires the payload to be
+encrypted with the device HW key; a plaintext (attr=0) record is fatal to the modem.
+
+### Why the DA/SEJ route failed
+`mtk da nvitem` derives the SEJ key from an OTP blob at `MMM\x01\x30`+0xC in the
+preloader. In **both** our preloaders (retail 295,012 B and G-variant 294,132 B,
+both found at offset 0xbc) those 32 bytes are **all zero**, so the DA crypto is run
+with a zero key -> garbage -> checksum check fails in both HW_5G and HW_ENCRYPTED modes.
+The real key material is chip-internal and not exposed by the preloader.
+
+### Device state after this section
+- Retail ROM, Magisk root, atcid up, AT working.
+- **Retail modem restored: `MOLY.LR12A.R3.MP.V118.11.P53`** (fastboot flash md1img).
+- IMEI still empty; SIM LOADED; `CSQ 99,99` (no RF because ME is illegal).
+
+### Remaining viable routes (in order of practicality)
+1. **META + MauiMETA** (Windows host or VM). We now know how to force META from BROM:
+   `mtk da meta usb` (`set_meta` writes boot_mode=1/com_type=2), or `misc_writer`.
+   MauiMETA's "IMEI download" then performs FT_NVRAM_WRITE and the **modem** does the
+   encryption/signing, so the key problem disappears.
+2. **Implement FT** ourselves: `/vendor/bin/meta_tst` on the AP is a full FT/META bridge
+   (strings: `FT_NvramRestore_OP`, `AT+EMETACFG=1`, `ATM_SWITCH_MODEM_TO_META`,
+   socket server). Would need the FT frame layout.
+3. **Patch md1img**: flip `custom_allow_at_write_imei()` to return TRUE, then plain
+   `AT+EGMR=1,7/<imei>` works and the modem handles NVRAM itself.
+   Modem image is a raw container (`0x58881688` + "md1rom") with **no ELF/symbols**;
+   section 0 = md1rom 22,604,644 B. Needs real RE work.
+
+## 40. Modem LID table found in md1img (confirms the IMEI record)
+
+`NV01` / `NV0S` appear at md1img offset ~0x157E888 — this is the **ltable**
+(`ltable_entry_struct`, see `ft_nvram_def.c`). Decoded entries:
+
+```
+lid=0xF006 total=1 size=0x10 def=0x90BB9541 cat=0x2400 attr=0x608A name="NV01"+"000"
+lid=0xF00A total=2 size=0x20 def=0x90BB94DD cat=0x2400 attr=0x6081 name="NV0S"+"000"
+lid=0xF007 total=1 size=0x01 def=0x90D05240 cat=0x80000000 attr=0x00000000 name="NONE"
+lid=0xF01C total=1 size=0x4B8 name="MTCR"
+```
+-> the on-disk files `NVD_IMEI/NV01_000` and `NVD_IMEI/NV0S_000` map 1:1 to those
+entries, and **LID 0xF00A = "NV0S" (2 records x 0x20) is the IMEI/IMEISV item**
+(category 0x2400 = IMPORTANT, hence invisible in the META FAT editor and write-gated).
+
+Note: `NVRAM_CATEGORY_IMPORTANT` items "will not appear in meta FAT Editor (ex: IMEI
+and SML)" — nvram_interface.c:2376. So a plain META NVRAM editor cannot fix IMEI;
+only the dedicated FT "IMEI download" op can.
+
+### Base-address attempts (for the md1img patch route)
+- ltable default pointers imply base `0x90000000`, but no literal in the image points at
+  the `+EGMR` strings with that base (0 hits), so the code/rodata sections are likely
+  loaded at different bases or use relative references. md1rom section = 22,604,644 B,
+  no ELF/symbols. Patching `custom_allow_at_write_imei` therefore needs real RE.
+
+## 41. LD0B route tested and ruled out; NV0S confirmed as THE IMEI item
+
+### Ground truth established
+- Hiding `NVD_IMEI/NV0S_000` and rebooting -> `ERROR:No Modem` (modem hangs).
+  Feeding it a plaintext record -> also `No Modem`.
+  => **LID 0xF00A "NV0S" (2 x 0x20) is the IMEI/IMEISV record the modem validates.**
+- `NVD_IMEI/LD0B_001` does not exist on this device and was never read:
+  created it (384 B, both LID 0xEF11/attr 0x6088 and LID 0xEF10/attr 0x0A variants),
+  rebooted twice -> `+EGMR: ""` unchanged and the file was **byte-identical after boot**
+  (modem never touched it). Removed again.
+
+### Open-source algorithms found (very useful, but for the SW-AES items)
+- `github.com/timjosten/mtk_imei` (PHP) and
+  `github.com/alltechdev/mtk-imei-switcheroo` (`tools/nvram/imei_tool.py`) both implement
+  the **LD0B** IMEI item:
+  - AES key `3f06bd14d45fa985dd027410f0214d22`, derived from the global MTK seed via
+    `scramble_iv_key` + AES-256-CBC (same as `SST_Get_NVRAM_SW_Key`, verified equal).
+  - record = 0x40 LDI header + 10 x 0x20 blocks, `LDI\0\x10\xef\x0a\x00` (LID 0xEF10).
+  - block = BCD IMEI(8) + FF FF + md5-xor checksum(8) + 14 zero bytes.
+  - confirms our payload/checksum construction was correct.
+- **But** this device's IMEI item is NV0S (0xF00A, attr 0x6081), which is **HW/SEJ
+  encrypted** — the global AES key decrypts it to garbage, and the DA cannot reproduce
+  the key (preloader OTP blob is all zeros).
+
+### Conclusion
+Writing the IMEI requires the **modem** to produce the NV0S payload (META / FT
+`IMEI download`), or patching md1img to re-enable `AT+EGMR`. No offline NVRAM edit
+can work on this platform.
+
+## 42. Retail ROM debloat + performance investigation (2026-10-27)
+
+### Debloat
+All removals are **per-user** (`pm uninstall --user 0`) - APKs untouched on /product and
+/system, fully reversible with `pm install-existing <pkg>`. 265 -> 207 packages.
+Removed: WPS, Facebook (katana/orca/appmanager/services/system), Instagram, 4 Gameloft
+games, Boomplay, Talpa browser, Tecno Spot, scanningrecharger, magazineservice,
+microintelligence, nephilim, statisticalsales, rlk.mi, rlk.feedback, questionnaire,
+plat.appupdate, systemupdate, PalmStore, AHAGames (net.bat.store), SmartCaller,
+CoolVideo, HiTranslate, rlk.weathers, phonemaster, videocallenhancer, wifiplaytogether,
+datatransfer, onekeytransfer, carlcare, trancare, repaircard, manualguide, audioshare,
+health, batterylab, agingfunction, aftersalecalibrationtool, swfp.factory,
+westalgo.factorycamera, reallytek.wg, Kika keyboard, XShareLite, XHide, Xkit,
+smartpanel, googlequicksearchbox, dualapp.
+Kept: all GApps, camera, HiOS launcher, gallery, file manager, clock, calculator,
+sound recorder, FM radio, video player, theme overlays, Magisk, all MTK/AOSP services.
+
+**Two removals broke things and were restored:**
+- `com.hoffnung` -> provides `com.hoffnung.cloudControl.RemoteConfigProvider`, used by
+  `com.android.phone`. Removing it crash-looped PhoneApp 104x (huge CPU load, lag).
+- `com.transsion.applock` -> provides `com.transsion.applock.provider`, used by
+  `com.android.quickstep/com.android.quickstep.RecentsActivity`. Removing it made the
+  **recent-apps screen crash** (SecurityException: Failed to find provider).
+Rule: Transsion apps expose ContentProviders consumed by core apps; test recents,
+dialer and settings after any removal.
+
+### Performance: sluggish UI / touch lag - measured, not guessed
+- Display/panel fine: SurfaceFlinger `VSYNC period 16666667 ns` (60 Hz), mode 60 fps.
+- App code fine: UI-thread draw 0.27 ms, traversal 0.06 ms.
+- Frame ends up at **32-40 ms median, 88-91 % janky, "High input latency" 100-166**.
+- **HWC is the bottleneck**: `android.hardware.graphics.composer@2.1-service` burns
+  **95 % of a core (~22 ms CPU per frame)** during scrolling and reports ~43 fps,
+  so every second vsync is missed -> effective 30 fps.
+- Ruled out by measurement: CPU governor/clocks (2.0/1.7 GHz at load), GPU clock
+  (forced 823 MHz via `echo 823000 > /proc/gpufreq/gpufreq_opp_freq` -> no change),
+  DFPS (`stop dfps-1-0` -> no change), charging/battery, the debloat itself.
+- User confirms the **G-variant test build had the same lag**, so it is not the retail
+  dtbo/panel config; it appears inherent to this HiOS build on MT6768.
+- Animations set to 0.5x (`window/transition/animator_duration_scale`).
+- NOTE: forcing GPU OPP is persistent until cleared; `cat /proc/gpufreq/gpufreq_opp_freq`
+  shows "Keeping OPP frequency is disabled" when unlocked.
+
+### OTA / firmware status for KE7 (official builds, per needrom listing)
+- `KE7-H693HJKM-Q-GL-220729V478` (2022-07-29, security patch **2022-07-05**) = **ours**
+  and the **newest GL build**.
+- Newer exists only for another variant: `KE7-H693HK-Q-TR-220831V134` (Turkey, H693HK).
+- Older GL: V472(220510), V462(220228), V450(211111), V438(210705), V414, V403, V381,
+  V321, V269.
+- "G" builds (GHIJKM lineage, e.g. 200617V074) are the internal/test builds.
+- Device is EOL (Android 10, last security patch July 2022) -> no further OTA expected.
+
+## 43. RAM reduction: launcher replacement + GApps trims (2026-10-27)
+
+### Launcher comparison (measured on this device, PSS via dumpsys meminfo)
+| launcher | package | PSS | Java | Native | Graphics | CPU idle | APK |
+|---|---|---|---|---|---|---|---|
+| HiOS/Quickstep | com.transsion.hilauncher | **193 MB** | 84 | 66 | 15 | 3.0-3.5 % | ~19 MB |
+| KISS | fr.neamar.kiss | **34 MB** | 3 | 13 | 6.4 | 0.0-0.2 % | 2.2 MB |
+| ap15 | com.aurhe.ap15 | **36 MB** | 1.9 | 15.4 | 8.7 | 0.0-0.2 % | 2.0 MB |
+
+- HiOS launcher **disabled** (`pm disable-user com.transsion.hilauncher`), not uninstalled.
+- Current default home: **ap15** (`com.aurhe.ap15/.LauncherActivity`), v2.27.3.
+  KISS is installed as an alternative (`fr.neamar.kiss/.MainActivity`).
+- Recents still works with either launcher because nav mode is **3-button**
+  (`settings get secure navigation_mode` = 0) and the recents key goes through
+  `com.android.quickstep/.RecentsActivity` (independent of the home app).
+- ap15 came from APKPure (`d.apkpure.com/b/APK/com.aurhe.ap15?version=latest`);
+  Play Store cannot install (no Google account signed in -> UnauthenticatedMainActivity).
+  `INSTALL_FAILED_VERIFICATION_FAILURE` was solved with:
+  `settings put global verifier_verify_adb_installs 0`, `package_verifier_enable 0`.
+
+### Removed in this round (per-user)
+`com.google.android.apps.tachyon` (Duo), `com.google.android.apps.wellbeing`,
+`com.transsion.plat.appupdate`, `com.transsion.systemupdate`,
+plus earlier `com.transsion.smartpanel` and `com.google.android.googlequicksearchbox`.
+
+### Memory effect
+`free` 46 MB -> ~365 MB; `Free RAM` (meminfo) 1.70 GB -> ~1.97 GB;
+Used PSS 1,860 MB -> ~1,589 MB. Note Android reports reclaimable cache as "used".
+
+### Known constraint for further GApps stripping
+YouTube and Play Store both require `com.google.android.gms` (the 273 MB PSS item) -
+it cannot be removed. Everything else Google is removable (Chrome, Photos, Docs, Maps,
+Gmail, YouTube Music, Videos, Talkback, TTS, Messages, sync adapters, Android Auto,
+PartnerSetup, SetupWizard, feedback, print recommendation) = ~700-800 MB APK,
+~250-350 MB RAM. To keep apps installed but not running in background:
+`cmd appops set <pkg> RUN_IN_BACKGROUND ignore`.
+
+## 44. Final GApps strip + Messages + appops (2026-10-27)
+
+- Launcher: **ap15** (`com.aurhe.ap15/.LauncherActivity`, v2.27.3) is the default home.
+  KISS was removed at user request. HiOS launcher stays disabled (not uninstalled).
+- Messages: Google Messages removed; **Fossify Messages** (`org.fossify.messages`,
+  F-Droid, 6.7 MB) installed and holds `android.app.role.SMS`.
+- 19 more Google packages removed (all except what YouTube + Play Store need):
+  maps, docs, photos, chrome, youtube.music, gm(Gmail), videos, projection.gearhead,
+  apps.restore, setupwizard, partnersetup, onetimeinitializer, feedback,
+  printservice.recommendation, marvin.talkback, tts, gms.location.history,
+  syncadapters.calendar, syncadapters.contacts.
+- Remaining Google (minimum set): gms, gsf, **com.android.vending (Play Store)**,
+  youtube, webview, inputmethod.latin (Gboard), permissioncontroller,
+  packageinstaller, documentsui, configupdater, ext.services/shared, modulemetadata,
+  ims, overlays.
+- Package count now **189** (started at 265).
+- Background execution blocked on Play Store and YouTube:
+  `cmd appops set <pkg> RUN_IN_BACKGROUND ignore` and `RUN_ANY_IN_BACKGROUND ignore`,
+  then `am force-stop`. They still work when opened; they just cannot wake themselves.
+- Remaining big PSS: gms 311 MB (untouchable - required by YouTube + Play Store),
+  Gboard **128 MB** (replaceable), systemui 113 MB, system_server ~170 MB.
+- No crashes after the batch (verified launcher, recents, settings).
+
+## 45. Post-debloat app set (2026-10-27)
+
+### Installed non-system apps (only 5)
+```
+org.fossify.messages      SMS (SMS role holder)
+com.aurhe.ap15            default launcher (text-based)
+org.mozilla.fennec_fdroid Firefox (F-Droid build) + uBlock Origin installed
+                          (profile: /data/data/org.mozilla.fennec_fdroid/files/mozilla/*/extensions/uBlock0@raymondhill.net.xpi)
+org.videolan.vlc          media player (arm64 build 13070206; F-Droid ships VLC per-ABI -
+                          the x86_64 apk fails with INSTALL_FAILED_NO_MATCHING_ABIS)
+com.topjohnwu.magisk      root
+```
+Gallery: `com.gallery20` (HiOS gallery) still installed and verified working.
+YouTube: removed (user will use a patched client "Morphe").
+YouTube Music: removed.
+
+### Memory after all changes
+`Free RAM` 1.70 GB -> **2.26 GB**; `Used PSS` 1.86 GB -> **1.24 GB**.
+`free -m`: 3549/3803 used but only ~1.2 GB is real PSS - rest is reclaimable cache.
+Package count 265 -> **190**.
+
+### Notes / open items
+- Play Store (`com.android.vending`) still installed but **no Google account is signed in**,
+  so it can only be used after signing in; otherwise it is dead weight and can be removed.
+- Gboard (`com.google.android.inputmethod.latin`) is the largest replaceable app:
+  PSS 128 MB / RSS 251 MB. Replace with Fossify Keyboard to save ~100 MB.
+- Lag/30-40 fps: root cause is the vendor HWC (see section 42); unresolved.
+- IMEI/cellular: still blocked (see sections 38-41).
+
+## 46. Morphe (patched YouTube) installed (2026-10-27)
+
+- **Morphe Manager v2.2.0** installed from the official GitHub release:
+  `https://github.com/MorpheApp/morphe-manager/releases/download/v2.2.0/morphe-manager-2.2.0.apk`
+  package `app.morphe.manager`, 41,684,300 bytes,
+  sha256 `5a175a77f671088c97ebaa6fdd65b1d4ed9f07dda44d59a37d3d11a712da2c44`
+  (release also ships a detached `.asc`; GPG verification skipped - no public key on hand).
+- On first launch it downloaded its patch sources ("Morphe Patches", ~13 MB) and offers
+  Reddit / YouTube / YouTube Music / "More apps (Community patches)".
+- YouTube itself is **not installed** (removed earlier); the user patches it entirely
+  inside Morphe Manager. Nothing else needed from the host side.
+- NOTE: do **not** apply `cmd appops set <pkg> RUN_IN_BACKGROUND ignore` to the patched
+  YouTube - it would break background/PiP playback.
+
+## 47. Can the vendor HWC be replaced? - NO (answered 2026-10-27)
+
+- The HWC HAL is `android.hardware.graphics.composer@2.1-service` +
+  `/vendor/lib64/hw/hwcomposer.mt6768.so`. It is the only component that knows this
+  display driver's `DISP` ioctls, so substituting an AOSP/generic HWC is not possible -
+  it would have no panel/vsync control at all.
+- The practical alternative is forcing SurfaceFlinger to composite with the **GPU**
+  (RenderEngine/Mali) instead of the HWC overlay engine - the "Disable HW overlays"
+  developer option. **This ROM's SurfaceFlinger does not implement it:**
+  `libsurfaceflinger.so` contains no `debug.sf.disable_hwc` (only `debug.sf.hwc_service_name`,
+  `debug.sf.enable_hwc_vds`, `debug.sf.disable_backpressure`, ...), and there is no
+  composition-type override plumbed in. The dev toggle writes a Settings value that SF
+  ignores, which is why setting `debug.sf.disable_hwc=1` + SF restart changed nothing
+  (composition stayed DEVICE).
+- Conclusion: the 30-40 fps / HWC-bound behaviour is not fixable on this ROM from
+  userspace. Would need a different ROM/GSI (same vendor HAL, so probably identical)
+  or a vendor fix that does not exist for this EOL device.
+
+### User decisions
+- IMEI / cellular: dropped, no longer pursued.
+- Play Store and Gboard: **kept** (stop removing).
+
+## 48. Android -> mainline hardware inventory (2026-10-27)
+
+Captured the complete hardware map from the running retail ROM into
+**`hardware-dump/HARDWARE_INVENTORY.md`** with raw dumps alongside:
+- `fdt.dtb` / `vendor.dts` — vendor device tree (5,685 lines, 436 compatibles)
+- `kconfig.gz` — kernel 4.14.141 config
+- `input_devices.txt`, `interrupts.txt`, `platform.txt`, `regulators.txt`, `gpio.txt`
+- `sensors.txt`, `camera.txt`, `lshal.txt`, `thermal.txt`, `power.txt`, `leds.txt`
+- `ext/cfg/` — audio policy + audio_param (1.2 MB) + thermal policies
+
+Highlights: LCM **nt36525b_hdp_dsi_vdo_txd_boe_ke7** (Novatek NT36525B, 720x1640,
+DSI video mode), backlight `lcd-backlight` max 255 via `1100e000.disp_pwm`,
+touch Novatek NVT-ts-spi @13.6 MHz, keys `mtk-kpd @10010000`, PMIC MT6358,
+charger **RT9471 @i2c 0x53**, audio `mt6768-mt6358-sound` with **speaker amp GPIO 39**,
+camera CAMSYS + GC02M1/OV02B10, sensors behind SCP, WiFi @18000000, Mali-G52 @13040000.
+See HARDWARE_RESEARCH_AND_DRIVER_RE.md for the porting checklist.
+
+## 49. Porting artifacts drafted (2026-10-27)
+
+Created `hardware-dump/porting/`:
+- **`panel-nt36525b-ke7.dtsi`** — DSI panel node for NT36525B.
+  Known: 720x1640@60, BURST video mode, burst clock **228.5 MHz** (`mm_dsi0`),
+  reset **GPIO 45**, bias **ENP 153 / ENN 152**, backlight OCP2130.
+  Missing: porch values + pixel clock (in the LK LCM driver, string at lk.img 0x8CDEE).
+- **`audio-amp-gpio39.dtsi`** — speaker amp on **GPIO 39** (`extamp_mode=2`) as a
+  regulator-fixed + ASoC DAPM hook. This is the "no loudspeaker on Linux" fix.
+- **`PORTING.md`** — per-subsystem status table + suggested bring-up order.
+
+Extra facts found while drafting:
+- `rt9471` charger confirmed at **i2c bus 5, addr 0x53** (dmesg `rt9471 5-0053`).
+- Keys: `mtk-kpd @10010000`, `kpd-sw-pwrkey = 0x74` (KEY_POWER), debounce 0x400.
+- Backlight is **OCP2130** i2c (LK symbol `ocp2130_i2c_write_byte`, DT `led_mode=5`),
+  not plain PWM - the `1100e000.disp_pwm` node still exists as a fallback.
+- i2c map captured: 5 buses with devices on 0,2,3,4,5,6,7; buses 1 and 8 empty.
+
+## 50. Runtime META attempt — Android-side transport identified (2026-10-28)
+
+Goal: get ModemMETA (Wine) talking to the modem **without** the bootloader, because
+LK ignores the DA `SET_META_BOOT_MODE` flag on this device.
+
+### What was tried and what happened
+
+| Step | Result |
+|---|---|
+| `da meta usb` + `reset` in BROM | DA reports success, phone boots Android anyway. LK ignores the flag. |
+| `0e8d:20ff` during that boot | **KPOC/HID off-mode charging**, not META. No tty. |
+| `boot_mode` sysfs write | `/sys/class/BOOT/BOOT/boot/boot_mode` is a **file on `mmcblk0p43`** (`/dev/block/mmcblk0p43`), `rw`. Write of `1` persisted and survived reboot, but Android still booted: the node is cosmetic for LK. |
+| `meta_tst` in normal boot | Exits with `[Meta] Normal mode flag is not 1,exist!` |
+| Bind-mount fake `1` over `boot_mode` | **Accepted** — `meta_tst` stays alive. It opens `/dev/ccci_ccb_meta`, `/dev/ccci_ccb_ctrl`, `/dev/pmsg0` and a netlink socket, but **never switches the modem** (AT still answers `OK`) and exposes nothing to the host. |
+| preloader `METAMETA` handshake over `/dev/ttyACM0` | No `READY` ever arrives. The node also lingers as a dead leftover after unplug, so triggers must use sysfs `0e8d:2000`, not the tty node. |
+
+### The real META wiring (from vendor init scripts)
+
+`/vendor/etc/init/hw/meta_init.rc` and `init.mt6768.usb.rc` define the whole scheme:
+
+- **META boot USB:** `acm.gs0` only, PID **0x2007**, `bDeviceClass 02`.
+  On the phone this is `/dev/ttyGS0`; on the host it becomes `/dev/ttyACM0`.
+- `ro.boot.usbconfig`: `0` = `adb_acm` (PID 0x200E), `1` = META `acm`,
+  `2` = META+ELT, `3` = META+ELT+ADB (PID 0x2040).
+- **ATM (Android Test Mode):** `ro.boot.atm=enable` starts `meta_tst`
+  (`init.mt6768.rc:1054`). Current value: `ro.boot.atm=disabled`.
+  ATM USB layouts: `atm_gs0` = mtp+adb+**acm.gs0**, PID **0x200A**;
+  `atm_gs0gs3`, PID 0x2026.
+- **ATE / AT-over-USB:** `via_bypass` = `via_modem` + `via_ets` + `via_atc`
+  (+adb), PIDs 0x2031/0x2033 (no adb), 0x2032/0x2034/0x2050 (with adb).
+- `meta_tst` contains `/dev/ttyGS0` and `persist.vendor.meta.connecttype`
+  (`usb` / `wifi`), so its PC transport is the gadget ACM port.
+
+### Live experiment (worked, then broke)
+
+1. `setprop sys.usb.config gs1gs3` → `0e8d:2029`, host gets `/dev/ttyACM0`
+   and `/dev/ttyACM1`, **adb stays connected**.
+2. Data proven: `printf PING > /dev/ttyGS1` appears on host `/dev/ttyACM0`.
+   **Caution:** with `gs1gs3` the linked functions are `acm.gs1` + `acm.gs3`,
+   and the host ACM0 mapped to **ttyGS1**. Function name != tty index.
+3. `setprop sys.usb.config atm_gs0` → `0e8d:200A`, links
+   `f1=mtp.gs0  f2=ffs.adb  f3=acm.gs0`, host `/dev/ttyACM0`, adb alive.
+4. **Flap:** re-enumeration every ~6 s. Cause found in `init.mt6768.usb.rc`:
+   the `atm_gs0` build rule is gated on
+   `vendor.usb.ffs.ready=1 && vendor.usb.clear=2`. When the gadget resets,
+   adbd reopens ep0 → `ffs.ready` 0→1 → init **rebuilds the gadget** → reset
+   → loop. Phone dmesg shows `USB_REQ_SET_CONFIGURATION: value=0`.
+5. `setprop vendor.usb.clear 0` stopped the rebuilds but the gadget ended up
+   **unbound**: the phone disappeared from USB entirely (no `0e8d` device).
+   Recovery: unplug/replug the cable (Android re-applies `persist.sys.usb.config`,
+   which is now `atm_gs0`), or reboot.
+
+
+### 50.1 ROOT CAUSE of the USB "flapping" (2026-10-28, later)
+
+The 6 s re-enumeration was **not** the phone and **not** the init rule: it was the
+**host's GNOME MTP daemon** `gvfsd-mtp` holding the whole USB device node
+(`/dev/bus/usb/003/127`) and resetting it whenever an MTP function was present.
+
+Evidence:
+- `fuser -v /dev/bus/usb/003/127` → `gvfsd-mtp ... F....`
+- `journalctl -k` showed `usb 3-3: reset high-speed USB device number 127` in a loop
+  and host udev `ttyACM0` remove/add pairs, while the phone-side dmesg showed
+  `USB_REQ_SET_CONFIGURATION: value=0`
+- after `pkill -x gvfsd-mtp` the resets **stopped** (no USB reset for minutes)
+- plain `adb`-only config was always stable because it has no MTP function
+
+Implication: any experiment that adds `mtp.gs0` or `mass_storage` to the gadget
+MUST first kill `gvfsd-mtp` (use `pkill -x`, not `pkill -f`, which kills the shell).
+
+### 50.2 Chosen transport: META over TCP (no COM port)
+
+`MetaApp.dll` in ModemMETA contains:
+
+```
+connectType :%d(enum:uart=0;usb=1;wifi=2;)
+Connecting socket failed: ip = %s, port = %d
+```
+
+So the PC tool can connect over TCP instead of a serial port, and Wine supports
+sockets natively. `meta_tst` has the matching side (`persist.vendor.meta.connecttype
+= wifi`, "Socket listen done", "Socket get server IP address:%s Port:%d").
+Plan: `sys.usb.config=rndis,adb` (IP over USB, no MTP, no gvfsd), start
+`meta_tst` in wifi mode, read the listening port with `ss -ltnp`, then point
+ModemMETA at the phone's IP and that port.
+
+### Current state
+
+- Phone: Android, **off USB** at the time of writing; `persist.sys.usb.config=atm_gs0`,
+  `sys.usb.config=atm_gs0`, `vendor.usb.clear=0` (needs replug to rebuild).
+- Next experiment: rebuild the gadget **once**, then keep `vendor.usb.clear=0`
+  only after the UDC is bound, and verify stability for 60 s before starting
+  `meta_tst`. If adb and ACM0 are stable, start `meta_tst` (bind-mount
+  `boot_mode=1`), check that it opens `/dev/ttyGS0`, set
+  `persist.vendor.meta.connecttype usb`, and map host `/dev/ttyACM0` to Wine COM1.
+
+### 50.3 meta_tst "init fail" solved: com-port-type sysfs file is missing
+
+`meta_tst` aborted its transport setup with:
+
+```
+[Meta] Failed to open com port type file /sys/bus/platform/drivers/meta_com_type_info/meta_com_type_info
+[Meta] com port type: 0
+[Meta] Enter meta_tst init fail
+```
+
+This kernel has **no `meta_com_type_info` platform driver at all**
+(`ls /sys/bus/platform/drivers/meta*` -> nothing). The file is a plain text
+integer selecting the META transport (MetaApp enum `uart=0;usb=1;wifi=2`).
+
+Verified mapping by faking the file in a **private mount namespace**
+(`unshare -m`, available as `/system/bin/unshare`):
+
+| file content | result |
+|---|---|
+| `1` | `meta_tst` opens **`/dev/ttyS0`** -> 1 = UART |
+| `0` | `meta_tst` opens **`/dev/ttyGS0`** -> 0 = **USB** (what we need) |
+
+Recipe that works (also keeps the `boot_mode=1` bind mount):
+
+```sh
+printf 1 > /data/local/tmp/fbm
+mount --bind /data/local/tmp/fbm /sys/class/BOOT/BOOT/boot/boot_mode
+setprop persist.vendor.meta.connecttype usb
+unshare -m /system/bin/sh -c '
+  mount -t tmpfs tmpfs /sys/bus/platform/drivers
+  mkdir -p /sys/bus/platform/drivers/meta_com_type_info
+  printf 0 > /sys/bus/platform/drivers/meta_com_type_info/meta_com_type_info
+  exec /vendor/bin/meta_tst'
+```
+
+Observed with content `0`: pid holds `/dev/ttyGS0` (fd 5), `ccci_ccb_meta`,
+`ccci_ccb_ctrl`, an extra socket; logs `CCB is ready` / `Create modem1 success`.
+The modem is **not** switched yet at that point (AT still returns OK) — it switches
+when the PC client starts the META handshake.
+
+### 50.4 Mistake to avoid: do not rebuild the gadget while adb is the only control
+
+Attempting to rebuild the gadget as `ffs.adb + acm.gs0` (PID 0x200E) after
+`setprop persist.sys.usb.config none` left the phone with **no USB at all** and
+no adb. `persist.sys.usb.config=none` is dangerous: if it survives to the next
+boot, Android will not bind the UDC and there will be no adb.
+
+Rule: never change `persist.sys.usb.config` or unbind the UDC unless a second
+control channel is already proven (e.g. WiFi META socket, or a rescue boot).
+Use the already-working `atm_gs0` gadget (`mtp+adb+acm.gs0`, PID 0x200A) and just
+run `meta_tst` + ModemMETA against `/dev/ttyACM0`; no rebuild is needed.
+
+## 51. Wine abandoned, Windows VM chosen (2026-10-28)
+
+Decision: **remove Wine entirely**; run ModemMETA in a Windows 10 VM with real USB
+passthrough. Reason: Wine has no USB support, so ModemMETA could never use its
+own USB/BROM path; the runtime bridge still needs a COM port and its BROM step
+fails ("SP Brom Error for Boot meta mode procedure").
+
+### Wine removal (completed)
+- `pacman -Rns wine winetricks` (also removed cabextract, ntsync-autoload)
+- deleted `~/.wine-meta` (1.0 GB), `~/.cache/wine` (80 MB), menu/MIME leftovers
+- `update-desktop-database` -> 0 wine references left
+
+### Host cleanup (completed, ~23 GB freed)
+- `~/.cache/paru` 6.9 GB, pacman cache 3.4 GB (`pacman -Sc`)
+- old ISOs: Arch 2025.09 + 2026.01, Win10 June 2025 (9.5 GB)
+- firmware `.zip` originals (extracted trees kept): 5.4 GB
+- duplicate ModemMETA zips: 0.2 GB
+- free space: 63 GB -> 86 GB
+
+### VM plan
+- QEMU 11.1.2 + KVM, `qemu-desktop` and `libisoburn` installed via pkexec
+- `~/Documents/vms/win10/win10.qcow2` (50 GB, sparse)
+- Win10 22H2 Oct-2025 ISO (consumer editions), unattended
+  `payload/autounattend.xml` -> Windows 10 Pro, local admin `mk`,
+  autologon, BIOS/MBR layout, `RunSynchronous` installs ModemMETA silently
+- `payload/` also holds `ModemMETA Setup.exe` and `Database/` (V118 EDB + APDB
+  W2025 + ENUM), built into `payload.iso` (110 MB)
+- VM started with `-machine q35 -cpu host -smp 4 -m 6144`, qemu-xhci controller
+  for later `usb-host` passthrough, `usb-tablet`, VNC on 127.0.0.1:1 and QMP at
+  `/tmp/opencode/qmp.sock`
+- control helper: `/tmp/opencode/qmp.py` (shot / key / type / raw)
+- planned passthrough target: `0e8d:200A` (atm_gs0 = mtp+adb+acm.gs0) so Windows
+  binds `usbser.sys` to the CDC ACM and ModemMETA sees a COM port
+
+### 50.5 Preloader COM-port driver solved (2026-10-29)
+
+Root cause of "It cannot find the Preloader/BROM COM port": Windows had **no driver**
+for `USB\VID_0E8D&PID_2000`. Evidence from `C:\Windows\INF\setupapi.dev.log`:
+
+```
+!!! set: USB\VID_0E8D&PID_2000&... -> Configured [null] and non-present (ConfigFlags = 0x40)
+```
+
+`[null]` = no INF bound, so no COM port existed for ModemMETA to open.
+
+Fix used (fully local, no third-party binaries): a CDC INF that binds the **inbox**
+`usbser.sys` to the MediaTek IDs, plus a self-signed catalog accepted by test signing.
+
+- INF from the `evadne/gemini-notes` mirror, extended with
+  `USB\Vid_0e8d&Pid_2000`, `Pid_2001`, `Pid_200a&MI_02`, `Pid_200e&MI_02`,
+  and a `CatalogFile=mtkpre.cat` line (without it pnputil ignores the catalog)
+- `bcdedit /set testsigning on` (VM has no Secure Boot)
+- catalog built with `New-FileCatalog` and signed with a self-signed cert that was
+  added to `LocalMachine\Root` and `TrustedPublisher` **before** signing
+- `pnputil /add-driver C:\Users\mk\mtkdrv\mtkpre.inf /install`
+
+Result:
+```
+Driver package added successfully. Published Name: oem2.inf
+Driver package installed on device: USB\VID_0E8D&PID_2000\...
+Driver package installed on device: USB\VID_0E8D&PID_200A&MI_02\...
+```
+
+The ACM interface (`0e8d:200A&MI_02`) is now a **"MediaTek USB Port"**, i.e. the
+kernel port name ModemMETA's ATM mode expects. Scripts kept at
+`/tmp/opencode/mtkpre.inf` and `/tmp/opencode/fix.ps1`.
+
+### 50.6 Build comparison + disk cleanup (2026-10-29)
+
+Freed ~9 GB by deleting `firmware/stock/super.raw` and `firmware/stock_retail/super.raw`
+(raw dumps duplicating the two `super.img` sparse images; regenerable with `simg2img`).
+Free space 66 -> 75 GB.
+
+Build comparison (strings, no flashing):
+- **Both** V060 (`200617V060`, older) and V478 (`220729V478`, current) `lk.img` contain
+  `=> META MODE`, `meta com type/id/uart port`, and
+  `[META] Check meta info from pre-loader: %x, %x, %d`.
+- **Both** preloaders contain `METAMETA`, `ADVEMETA`, `METAFORB`,
+  `seclib_brom_meta_mode`, `BR META BOOT`, `BOOT_MODE: %d`,
+  `META_COM TYPE/ID/PORT`, `FAST META GPIO: %d`,
+  `In fast meta, bypass usb handshake`, `read_meta_proinfo`.
+- V060 additionally has `disable_fastmeta = %d`.
+
+Conclusion: the device does **not** lack META support — both builds have it. A different
+retail build is therefore unlikely to fix the IMEI problem by itself. Also note the V060
+package is for a slightly different variant (`H693GHIJKM` vs `H693HJKM`), so a full
+downgrade risks panel/touch mismatches.
+
+`da meta` in mtkclient only sends `SET_META_BOOT_MODE` (0x020006) with
+`01 02 00` (boot=meta, com=usb, id=0); it does **not** reboot. The DA reports success,
+the flag is set, yet the next cold boot still goes to Android — so either the flag
+location/value is not what this preloader reads, or the DA's reset path clears it.
+
+Next experiment (needs BROM): read `misc`, `boot_para` and `proinfo` before and after
+`da meta usb`, diff them to locate the flag, then compare against the preloader's
+`read_meta_proinfo` logic. BROM is required for this and for any build flashing.
+
+### 50.7 The DA META flag is VOLATILE — proven (2026-10-29)
+
+Experiment: dump `misc` (p15), `boot_para` (p1), `proinfo` (p2), `para` (p3) to host,
+run `mtk.py da meta usb` (BROM handshake OK, "Successfully set meta mode to usb"),
+then read the same four partitions **while the DA is still alive** (same session).
+
+Result: **all four partitions byte-identical to the baseline** (`cmp` clean, 6 MB /
+26 MB / 3 MB / 512 KB). The flag is therefore **not stored on disk at all** — it is a
+volatile register/SRAM state that only a DA-initiated *warm reboot* could consume.
+
+Why boot never lands in META:
+- `mtk.py reset` calls `daloader.shutdown(bootmode=0)` -> **power-off**, flag lost.
+- The xflash DA `SHUTDOWN` command only knows bootmode 0/1/2; there is **no META
+  bootmode** and no separate REBOOT command in the xflash protocol.
+- Patched `shutdown(bootmode=1)` to reboot in the same DA session after
+  `setmetamode` (`MTK_META_REBOOT=1` env in mtk_da_handler.py) -> still powers off.
+- Patched `dont_resetrtc=1` in xflash_lib.shutdown (RTC scratch hypothesis) -> still
+  powers off. No USB enumeration afterwards; the phone must be powered on manually.
+
+Consequence: on this unit the DA path cannot produce a real META boot. The remaining
+options are (a) patch the LK/preloader to force META, (b) find and pull the preloader's
+"fast meta" GPIO (`FAST META GPIO: %d`, `In fast meta, bypass usb handshake`), or
+(c) implement the META FT protocol against the working `meta_tst` bridge.
+
+Also confirmed while answering the storage question:
+- `backup/nvram.bin`, `nvdata.bin`, `nvcfg.bin` are **100% zeros** (single distinct
+  byte value sampled across 64 MB) -> the modem NVRAM was fully wiped.
+- IMEI is NV item `LID 0xF00A`, NV0S, attr 0x6081, 2 x 0x20-byte records, SEJ-encrypted
+  with an OTP/eFuse-derived hardware key. Plaintext writes break the modem; only the
+  modem's own NV handler (META) can produce a valid record.
+
+### 50.8 IMEI storage CRACKED (format), crypto still hardware-bound (2026-10-29)
+
+The IMEI is **not** in a raw NV record we can hand-craft. It is an MTK NVRAM **file**
+on the live ext4 `nvdata` partition:
+
+```
+/mnt/vendor/nvdata/md/NVRAM/NVD_IMEI/NV0S_000      (144 bytes, radio:radio 0660)
+```
+
+Header (little endian):
+```
+00  4C 44 49 00            "LDI\0"  (MTK NVRAM file magic)
+04  0A F0                  LID = 0xF00A (IMEI)
+06  02 00                  item count = 2 (SIM1, SIM2)
+08  20 00 00 00            item size = 0x20
+0C  81 60 00               attribute = 0x6081
+40  payload: 2 x 32-byte encrypted records (+16 bytes tail)
+```
+Sibling file `NV01_000` = LID 0xF006, size 0x10, attr 0x608A.
+
+Crypto findings:
+- The public MTK "LD0B" software format (AES-128-ECB key `3f06bd14d45fa985dd027410f0214d22`,
+  MD5-XOR checksum, BCD swapped nibbles) does **not** decrypt our file.
+- Tried that key, the default `0102...` key, MD5(header), zero key, and CBC variants with
+  several IVs -> no valid BCD/checksum. So `NV0S_000` is the **SEJ/HW-encrypted** variant
+  (`attr 0x6081`, not the SW bit 0x8).
+- SEJ is per-device, OTP/eFuse-derived; no leaked universal key exists. mtkclient's
+  software SEJ class needs the real HACC registers, so it cannot run offline.
+- `mtk.py da nvitem NV0S_000` sends DA `CUSTOMSEJ` (0x4000C); the xflash DA answers
+  **"Wrong magic"** (command unsupported). The generic XML DA loader (`da_xml.bin`)
+  is not accepted by this BROM (no handshake messages, 420 s timeout).
+- mtkclient's `da imei` only handles the LD0B (software AES) layout, not NV0S.
+
+Next viable approach: hook the on-device **nvram_daemon** (root + Frida/ptrace), which
+decrypts NV0S through the SEJ driver at boot. Either dump the plaintext to learn the
+record, or call the same decrypt/encrypt routine with our IMEI records and write the
+file back with root. No BROM, no flashing, no META.
+
+### 50.9 NV crypto is modem-side; AP libraries are stubs (2026-10-29)
+
+Pulled the AP NV stack from the device:
+- `/vendor/bin/nvram_daemon` -> `libnvram.so` -> `libnvram_sec.so`
+- `libnvram_sec.so` exports `sec_nvram_enc`, `sec_nvram_dec`, `NVM_Enc_Dnc_File`
+  but **`sec_nvram_enc`/`sec_nvram_dec` are `mov w0, wzr; ret` stubs** on this build.
+  `NVM_Enc_Dnc_File` just calls those stubs. So the AP performs **no** NV crypto.
+- `nvram_daemon` only syncs product-info/WiFi/BT at boot; it exposes **no socket**
+  (`/dev/socket` has no nvram entry, `/proc/net/unix` none).
+- mtkclient's pure-python `SST_Get_NVRAM_SW_Key()` + `decrypt_nvitem()`/`encrypt_nvitem()`
+  were tried on `NV0S_000` (all three seeds `mtk`/`mtkv2`/`samsung`, offsets 0x30-0x80,
+  ECB and RC4 variants): no valid BCD/checksum. Roundtrip works, so the implementation
+  is self-consistent, but this file is not encrypted with those software keys.
+
+The modem firmware (`md1img.img`, 57 MB) does contain the NV key constants
+(`SECOND_SEED` @0x14AEDD0, `NV_KEY_CONST` @0x14AEDF0, `MTK_SEED` @0x14FE634) and the
+NVRAM sources (`common/service/nvram/src/nvram_l1def.c`, `LR12A.R1.MP`,
+`Z:\NVRAM\NVD_IMEI`), i.e. the NV engine is in the modem.
+
+Conclusion: `NV0S_000` is encrypted by the **modem** (SEJ/HACC), and the AP only stores
+the resulting bytes. There is no AP-side writer to borrow. The remaining ways to make
+the modem produce a valid record are (a) real META, (b) an LK/preloader patch that forces
+META, or (c) the preloader "fast meta" GPIO.
+
+## 52. BREAKTHROUGH: real META mode reached (2026-10-29)
+
+The preloader handshake was failing because the **direction was wrong**. The host must
+speak first. Protocol (from `neutronscott/mtk-bootseq.py` gist):
+
+```
+host  -> "METAMETA"
+preloader -> b"READY" + reversed(seq[-3:])   # i.e. b"READYATE"
+```
+
+Script: `/tmp/opencode/premeta.py` — polls sysfs for `0e8d:2000`, opens `/dev/ttyACM0`
+raw 115200, writes `METAMETA`, reads; repeats while the preloader is present.
+
+Observed on the device (2026-10-29 07:47):
+```
+RX b'READY'
+RX b'ATEM0001'
+RX b'ATEM0002'
+RX b'ATEMATEX'
+```
+and the phone re-enumerated as **`0e8d:202D`** = **META+ELT** config:
+
+```
+if 1.0: 08/06/50  usb-storage
+if 1.1: 02/02/01  cdc_acm  -> /dev/ttyACM0  (META)
+if 1.2: 0a/00/00  cdc data
+if 1.3: 02/02/01  cdc_acm  -> /dev/ttyACM1  (ELT)
+```
+
+Windows (VM) then exposed **COM7 = `USB\VID_0E8D&PID_202D&MI_01`** (META) and
+**COM6 = MI_03** (ELT).
+
+ModemMETA (Windows VM, `DUT in META Mode`, Port=UART, COM7) connected successfully:
+```
+✔ Boot   ✔ Get kernel port   ✔ Connect to AP   ✔ Get SW info
+✔ Setup AP Logger   ✔ Finish AP handshake   -> Connect to MD  ... Connected
+```
+
+### Remaining blocker: NVRAM database for the IMEI plugin
+`IMEI Download` -> "Load NVRAM database" needs a **DB file**:
+- "From Target" fails -> `Load NVRAM database flow failed` (device nvdata was wiped,
+  so the target has no NVDB to export)
+- EDB (MDDB V118) -> `SP_META_File_Operation_Parse_r: Invalid Argument`
+- APDB_MT6768_S01__W2025 -> `Load DB flow failed`
+
+The correct file is the **AP-side NVRAM database** that ships on the phone in
+`/system/etc/mddb/` (MTK `BPLGUInfoCustomAppSrcP_*` = the MDDB variant the tool
+expects). It was not yet pulled because the phone was in META (no adb).
+
+### Next steps
+1. Reboot the phone to Android, `adb pull /system/etc/mddb /vendor/etc/mddb`.
+2. Re-enter META with `premeta.py` (proven reliable), reattach to the VM.
+3. Load the pulled mddb file in `IMEI Download`, then write IMEI1/IMEI2.
+
+### 52.1 Session end state (2026-10-29 ~04:20)
+
+Working end-to-end:
+- `premeta.py` handshake -> META+ELT (`0e8d:202D`) -> attach to VM -> ModemMETA
+  "DUT in META Mode" + UART + **COM10** -> **Connected** (all AP stages green).
+- IMPORTANT: the COM number changes on every re-enumeration (COM7 -> COM10). Always
+  read it in the VM with `wmic path Win32_SerialPort get DeviceID,Name,PNPDeviceID`
+  and select the `MI_01` port; the `MI_03` port is ELT.
+- The phone's NVRAM database files were pulled from
+  `/data/vendor_de/meta/mddb/`:
+  `MDDB.META.ODB_MT6768_...V118...XML.GZ` (218 KB, XML db) and
+  `MDDB.META_MT6768_...V118....EDB` (314 KB).
+
+Remaining blocker: "Load NVRAM database" rejects every candidate tried:
+- firmware EDB (16 MB) -> `SP_META_File_Operation_Parse_r: Invalid Argument`
+- APDB (CATD) -> `Load DB flow failed`
+- phone `mddb.xml.gz` -> `Load DB flow failed`
+- phone `mddb.edb` (313 KB) -> selection dialog became unresponsive to synthetic
+  clicks before it could be loaded (GUI input issue, not a format verdict).
+
+Next session: either load the 313 KB `mddb.edb` through the GUI (real mouse), or use
+`bin/MetaCLI.exe -i <ini>` with an ini derived from `configs/User_Latest_Settings.txt`
+(keys: `ComPort`, `ComPortType`, `PlatformType`, `IMEI`, `ApDB`) to do the IMEI write
+headlessly. The IMEI values are only in the live session, never on disk.
+
+### 52.2 Final state 04:26 — blocked only on the NVRAM DB parser
+
+ModemMETA is **Connected** in real META (`DUT in META Mode`, UART, COM10).
+`Load NVRAM database` still fails with `Please try to load the other NVRAM database`
+for every candidate:
+- firmware EDB 16 MB, phone `mddb.xml.gz`, phone `mddb.edb`, APDB, and
+  `From Target` (device NV data is wiped).
+
+The GUI file dialogs also became unresponsive to synthetic QMP clicks/keys (they accept
+list selection but not button activation), so the last attempts were driven by the user
+or by luck. The remaining work needs either a real mouse in the virt-manager console,
+or `bin/MetaCLI.exe -i <ini>` with the correct `ApDB`/NVRAM-DB key.
+
+Everything else is proven and reproducible:
+`premeta.py` -> `0e8d:202D` -> attach -> ModemMETA connected (check COM via
+`wmic path Win32_SerialPort get DeviceID,Name,PNPDeviceID`, use the `MI_01` port).
+
+Phone should be powered off to avoid draining the battery in META.
+
+## 53. RESUME PLAN — SN Write Tool (best path), session 2026-10-29 evening
+
+### What is proven and ready
+1. **Real META works**: `python3 /tmp/opencode/premeta.py 300` (or
+   `/tmp/opencode/fast_reenter.sh`) waits for `0e8d:2000`, opens /dev/ttyACM0 raw
+   115200, sends `METAMETA`, gets `READY`/`ATEM...`, and the phone re-enumerates as
+   **`0e8d:202D`** (META+ELT).
+2. **Attach to VM**: `virsh -c qemu:///session attach-device WINMETA /tmp/opencode/usb-meta.xml --live`
+   (use after every VM reboot; the domain loses hot-plugged hostdevs).
+3. **Windows VM** (`WINMETA`, qcow2 at ~/Documents/vms/win10/win10.qcow2) has:
+   - ModemMETA at `C:\ModemMETA` (works, can connect via COM port, but its IMEI
+     plugin NVRAM-DB loader rejects every DB — dead end).
+   - **SN Write Tool v1.2020.00** at `C:\Users\mk\SN\SN_Write_Tool_v1.2020.00\`
+     (runs after installing the VC++ AIO runtime).
+   - **VC++ runtime installed** via `C:\Users\mk\VC3.exe /ai /gm2` (done 2026-10-29).
+4. **SN Write Tool config is the key**: `SN_Setup.ini` in the tool folder contains
+   every setting. A patched copy is at **`~/Downloads/SN_Setup.ini`** with:
+   ```
+   Already in Meta = True          # DUT already in META, do not boot it
+   Keep in Meta = True
+   IMEI Nums = 2                   # dual SIM
+   AP DB from DUT = False
+   MD DB from DUT = False
+   Modem_1 database path = C:\ModemMETA\Database\MDDB_InfoCustomAppSrcP_MT6768_S00_MOLY_LR12A_R3_MP_V118_11_P53_1_ulwctg_n.EDB
+   AP database path = C:\ModemMETA\Database\APDB_MT6768_S01__W2025
+   Ignore Database Inconsistent = True
+   ```
+   `Kernel Port Filter` already contains `VID_0E8D&PID_202D&MI_01`, so SN Writer
+   auto-detects the META port.
+
+### Exact resume steps (evening)
+1. Start VM: `virsh -c qemu:///session start WINMETA` (or virt-manager).
+2. Phone: power off, run `premeta.py`, plug (no keys) -> `0e8d:202D`.
+3. Attach: `virsh attach-device WINMETA usb-meta.xml --live`.
+4. In VM, copy the patched ini over the tool's:
+   `curl.exe -L -o "C:\Users\mk\SN\SN_Write_Tool_v1.2020.00\SN_Setup.ini" http://10.0.2.2:8001/SN_Setup.ini`
+   (host server: `cd ~/Downloads && python3 -m http.server 8001`).
+   NOTE: QMP typing drops characters; verify with `findstr "Already in Meta" <ini>`.
+   If it keeps failing, put the ini on a small ISO and copy it from the CD.
+5. Launch `SN_Writer.exe`.
+6. Click **Start**. With `Already in Meta = True` it should connect to `202D MI_01`,
+   read the DBs, and ask for IMEI1/IMEI2 (or use Key Files/Identify).
+7. Enter the device's own IMEIs (only in the live dialog; never in the repo):
+   IMEI1 `<IMEI1>`, IMEI2 `<IMEI2>` (recorded here as the user's own
+   device values; do not commit them to any remote).
+8. After Pass, power-cycle the phone and verify with `*#06#` / `getprop`.
+
+### Known GUI/VM hazards (learned the hard way)
+- QMP `send-key` occasionally **sticks the Meta modifier** (Win+E, Win+G open), and
+  characters get dropped. Always release modifiers explicitly:
+  `input-send-event` key meta_l/shift/ctrl/alt down=false, then press Esc.
+- QMP clicks are absolute 0..32767; convert `x*32`, `y*42.66`. Wrong scale was the
+  cause of many "unresponsive" buttons.
+- Modal file dialogs ignore synthetic button clicks sometimes; the user's real
+  mouse in the virt-manager console is the reliable fallback.
+- `modemmeta`'s "Load NVRAM database" rejects: firmware EDB, APDB, phone
+  `mddb.xml.gz` and `mddb.edb` — do not retry those.

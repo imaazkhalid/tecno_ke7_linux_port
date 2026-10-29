@@ -21,6 +21,8 @@
 9. [Zero-OTG USB Gadget Networking](#9-zero-otg-usb-gadget-networking)
 10. [Step-by-Step Bring-up Checklist](#10-step-by-step-bring-up-checklist)
 30. [MT6768 Power/Clock Internals — Vendor-Kernel Register Research](#30-mt6768-powerclock-internals--vendor-kernel-register-research-oct-25-2026)
+31. [SIM Hot-Plug EINT: Leaked LR12A.R3.MP Source Analysis and Correction of §29](#31-sim-hot-plug-eint-leaked-lr12ar3mp-source-analysis-and-correction-of-29-oct-25-2026)
+32. [Runtime META over USB — Vendor Init Wiring & the adbd Rebuild Loop](#32-runtime-meta-over-usb--vendor-init-wiring--the-adbd-rebuild-loop-oct-28-2026)
 
 ---
 
@@ -782,6 +784,14 @@ Communication over `/dev/ccci_fs` utilizes `PORT_F_USER_HEADER` (`sizeof(struct 
 
 ## 29. Handshake 2 Stall — Root Cause: Missing SIM1 Hot-Plug EINT Device Tree Descriptor (Oct 25, 2026)
 
+> **CORRECTION (Oct 25, 2026, later): the "root cause" conclusion in this section is WRONG.**
+> The 12 EINT RPCs are the **complete, successful phase-1 EINT init** (`EINT_Setting_Init()`),
+> not a failing `sim_reg_hot_plug_eint()`. That function has no failure branch and returns
+> normally even when every RPC fails. The missing debounce/polarity/sensitivity/socket
+> queries belong to **phase 2** inside `L1sim_Reset_All()`, which runs only when the SIM task
+> starts card reset — it has not run yet (VSIM is still off). See **§31** for the leaked
+> LR12A.R3.MP source and the corrected call order/diagnosis.
+
 ### 1. Symptom
 After Handshake 1 the modem never reaches Handshake 2. `md_state` goes `2 -> 3` (`BOOT_WAITING_FOR_HS2`), AP sends runtime data successfully, then 30 s later:
 
@@ -1112,3 +1122,409 @@ Vendor-expected: 0x320 bit8=0, 0x394 bit0=1, 0x398 bit0=0, 0x180/0x184 bit0=1.
 If 0x394 reads 0 or 0x398 reads 1, the mainline power-on is definitely incomplete.
 A fix belongs in `mt6768-pm-domains.h`/`mtk-pm-domains.c` (model SRAM_PDN + MD_SRAM_ISO + EXT_BUCK_ISO
 with vendor ordering), **not** in a blind single-register poke.
+
+---
+
+## 31. SIM Hot-Plug EINT: Leaked LR12A.R3.MP Source Analysis and Correction of §29 (Oct 25, 2026)
+
+### 31.1 Sources used (all public)
+
+| What | URL |
+|---|---|
+| Leaked **MOLY.LR12A.R3.MP** modem source (same generation as our `LR12A.R3.MP`) | https://github.com/junkyard-2327/TK_MD_BASIC_MOLY.LR12A.R3.MP.V110.6 |
+| Older leaked **MOLY.LR9.W1444** modem source (almost identical code) | https://github.com/cvolo4yzhka/MOLY.LR9.W1444.MD.LWTG.MP.V296 |
+| `eint_setting_init.c` (LR12) | `mcu/common/driver/devdrv/eint/src/eint_setting_init.c` |
+| `icc_switchControl_al.c` (LR12) | `mcu/common/driver/devdrv/usim/src/icc_switchControl_al.c` |
+| `custom_sim_driver.c` (LR12, contains `sim_reg_hot_plug_eint`) | `mcu/pcore/custom/driver/drv/misc_drv/_Default_BB/MT6765/custom_sim_driver.c` |
+| `dcl_eint.c` (LR12) | `mcu/common/driver/devdrv/eint/src/dcl_eint.c` |
+| Vendor AP-side RPC handler (local copy) | `downstream-src/drivers/misc/mediatek/eccci/port/port_rpc.c` |
+| Canonical stock DT node (`dedicated=<0 0>`, `src_pin=<0 1>`) | https://github.com/MotorolaMobilityLLC/kernel-mtk/blob/android-13-release-ttt/cust.dtsi#L355 |
+| Sony L1 modem strings (same strings as our md1img) | https://gist.github.com/bigrammy/24184ea31e7c28de1df239f3f1c8c95d |
+| Leaked internal **SIM_debug_SOP** (Chinese, MTK CONFIDENTIAL) | https://www.cnblogs.com/f888/p/8038212.html |
+| MTK FAQ: SIM hot swap fails when detect pin is **EINT0** | https://bbs.16rd.com/thread-55279-1-1.html |
+| MTK FAQ: EINT config for SIM hot swap (MT6575/77), contains legacy `sim_reg_hot_plug_eint()` body | https://bbs.16rd.com/thread-55282-1-1.html |
+| MTK FAQ12120: MT6290 SIM hot swap config (`L1sim_Reset_All()` reference) | https://bbs.16rd.com/thread-55304-1-1.html |
+| FAQ05831 title: "Platform differences in SIM hot swap EINT module" | https://blog.csdn.net/szx940213/article/details/78651844 |
+| Real mdlog: `EINT: 0, 0 0 100 0 0 0` + `EINT: MD1_SIM1_HOT_PLUG_EINT` then ATR | https://blog.51cto.com/u_12227/10756658 |
+| Working MT6765 HS1 log with `md_boot_stats0=0x54430007`, `stats1=0x53320000`, then HS2 | https://gist.github.com/gmillz/0c249aaec5679b3e83f43f6b25e9763b |
+
+### 31.2 CORRECTION: the 12 RPCs are phase 1, and phase 1 cannot fail
+
+From `eint_setting_init.c` (LR12, lines 164-226), `EINT_Setting_Init()` does **exactly** our
+observed 12 queries, 3 per SIM in the order **6 (SRCPIN), 0 (NUMBER), 5 (DEDICATEDEN)**:
+
+```c
+query = (kal_uint8 *)"MD1_SIM1_HOT_PLUG_EINT";
+if (IPC_RPC_EINT_GetAttribute(query, 23, SIM_HOT_PLUG_EINT_SRCPIN, &srcpin1, 4) < 0)
+        srcpin1 = EINT_SRCPIN_HWTIED0;          /* = 4, default */
+if (IPC_RPC_EINT_GetAttribute(query, 23, SIM_HOT_PLUG_EINT_NUMBER, &eint_num1, 4) < 0)
+        eint_num1 = -1;
+else
+        eint_src_map[eint_num1] = srcpin1;
+if (IPC_RPC_EINT_GetAttribute(query, 23, SIM_HOT_PLUG_EINT_DEDICATEDEN, &dedicatedEn1, 4) < 0)
+        dedicatedEn1 = 0;
+/* ... SIM2, SIM3, SIM4 identical ... */
+eint_is_dedicated = (dedicatedEn1<<0 | dedicatedEn2<<1 | dedicatedEn3<<3 | dedicatedEn4<<4);
+EINT_Setting_SW_Init();
+md1_eint_lock = kal_create_spinlock("eint");
+```
+
+**Every getter has an `else`/default. There is no `goto`, no `return`, no ASSERT, no wait.**
+A failed or successful query is equally non-fatal. This is the code that produced our 12
+packets; it then calls `EINT_Setting_SW_Init()` and returns to its caller
+(the default tree's `custom_drv_init()` calls `EINT_Setting_SW_Init()` at line 229).
+
+With the stock/canonical answers (SIM1 `src_pin=1`, `eint_num=0`, `dedicated=0`; SIM2-4 `-11`):
+* `eint_src_map[0] = 1`
+* `eint_is_dedicated = 0` → `EINT_Setting_SW_Init()` maps **no** dedicated EINT and programs no
+  DEINT registers; it only runs `EINT_SW_Debounce_Init()`.
+* The MD-side path is byte-for-byte the same as Motorola/Infinix/KT-R1 stock DTS
+  (`interrupts=<0 8>`, `debounce=<0 10000>`, `dedicated=<0 0>`, `src_pin=<0 1>`,
+  `sockettype=<0 0>`). The node added in §29 is **correct and canonical**; it is not malformed.
+
+Conclusion: **the 12th reply is not a failure point. The modem does not "stop after the
+EINT-number RPC pass" inside EINT code.** The absence of the next 5 queries means the modem
+has not yet reached SIM card reset (phase 2), not that EINT registration aborted.
+
+### 31.3 Q1 — exact call order (FACT, from LR12A.R3.MP source)
+
+**Phase 1 — `EINT_Setting_Init()`**, called from platform driver init (`custom_drv_init`
+family), *before* the SIM task does card detection:
+
+1. `SIM_HOT_PLUG_EINT_SRCPIN` = **6** → `srcpinN`
+2. `SIM_HOT_PLUG_EINT_NUMBER` = **0** → `eint_numN`; `eint_src_map[eint_numN] = srcpinN`
+3. `SIM_HOT_PLUG_EINT_DEDICATEDEN` = **5** → `dedicatedEnN`
+4. `eint_is_dedicated` bitmask; `EINT_Setting_SW_Init()`:
+   for each dedicated EINT: disable EINT IRQ, `EINT_Set_Dedicated_Eint(deintno, eintno)`,
+   disable L1 EINT enable; then `EINT_SW_Debounce_Init()`
+5. `kal_create_spinlock("eint")`; return.
+
+This is exactly 4 SIM × 3 = **12 RPCs**, in per-SIM order **6, 0, 5**. Verified against the
+observed `rxq1 isr_cnt=12` trace.
+
+**Phase 2 — `L1sim_Reset_All()`**, called when the SIM driver resets/detects a card
+(this is the point where VSIM is powered):
+
+```c
+status = simDriver->reset(...);                 /* powers VSIM, sends ATR reset */
+...
+ipcStatus = IPC_RPC_EINT_GetAttribute(query, 23, SIM_HOT_PLUG_EINT_NUMBER, ...);      /* 0 */
+if (ipcStatus < 0) { hw_cb->no_md_eint_settings = KAL_TRUE; goto LEAVE_REG_EINT; }
+ipcStatus = ... SIM_HOT_PLUG_EINT_DEBOUNCETIME ...                                    /* 1 */
+ipcStatus = ... SIM_HOT_PLUG_EINT_POLARITY ...                                         /* 2 */
+ipcStatus = ... SIM_HOT_PLUG_EINT_SENSITIVITY ...                                      /* 3 */
+ipcStatus = ... SIM_HOT_PLUG_EINT_SOCKETTYPE ...                                       /* 4 */
+...
+sim_reg_hot_plug_eint(application, eintNo, debounceTime, polarity, sensitivity, socketType);
+LEAVE_REG_EINT:
+    "EINT: %d, %d %d %d %d %d %d %d"  /* app,status,eintNo,debounce,pol,sens,socket,srcpin */
+    "EINT: %s"                        /* MD1_SIMx_HOT_PLUG_EINT */
+```
+
+`sim_reg_hot_plug_eint()` (`custom_sim_driver.c:599-667`) then does, in this order:
+
+```c
+EINT_Set_HW_Debounce_Enable(eintNo, EINT_DISABLE);
+EINT_SW_Debounce_Modify(eintNo, 0);                 /* unit 10 ms */
+EINT_Set_HW_Debounce(eintNo, debounceTime * 10);    /* unit ms */
+EINT_Set_Sensitivity(eintNo, sensitivity);
+EINT_Registration(eintNo, KAL_TRUE, polarity, simX_hot_plug_eint_cb, KAL_TRUE);
+```
+
+So the split is: **(src_pin, number, dedicated) at EINT driver init**; then, only at SIM card
+reset/detection, **(number, debounce, polarity, sensitivity, socket)** followed by the actual
+`EINT_Registration`. The user's "older modem queries 1,2,3,4 right after the number" is phase 2
+and requires the SIM task to have started card reset first.
+
+`EINT_Registration()` (`dcl_eint.c:498`) has a hard check:
+`if (eintno >= EINT_TOTAL_CHANNEL) kal_fatal_error_handler(KAL_ERROR_DRV_EINT_INVALID_INDEX)`,
+so a bogus large EINT number *would* be fatal — but SIM1 returns 0, which is valid, and the
+phase-2 path is never reached.
+
+### 31.4 Q2 — what "DWS" is, and what the message means (FACT)
+
+* **DWS = `codegen.dws`**, the MediaTek DCT/DrvGen "driver working sheet" (an Excel-like
+  configuration file). The DCT tool is `DrvGen.exe`; the file lives at
+  `alps/mediatek/custom/<project>/kernel/dct/dct/codegen.dws` (AP side) and there is also an
+  **MD-side** `codegen.dws` in the modem tree, e.g.
+  `mcu/pcore/custom/driver/drv_gen/MT6765_SP/DEFAULT/codegen.dws` in the leaked LR12 tree.
+  It generates `cust_eint.h`/`eint_def.c`/DTS EINT nodes at build time. It is **not** an NVRAM
+  database and is never read from `nvdata`/`nvram`.
+* For integrated modem platforms, the AP's `codegen.dws` is rendered into the DT node
+  `md1_sim1_hot_plug_eint`; at runtime the MD fetches the values over CCCI RPC 0x4005. The AP
+  handler `get_eint_attr_DTSVal()` (`port_rpc.c:331-361`) only calls
+  `of_property_read_u32_index()` on the cached DT values — **no NVRAM access at all**.
+* `no_md_eint_settings` is set to `KAL_TRUE` **only when an RPC getter returns < 0**
+  (`icc_switchControl_al.c:807-810, 871-928`). The message
+  `"no md eint settings in DWS, LEAVE_REG_EINT"` (line 858-863) therefore means:
+  *"the AP's DWS-derived DT did not give us an EINT number for this SIM, so skip EINT
+  registration and continue."* It is a **skip**, not an abort: control falls to
+  `LEAVE_REG_EINT`, prints `EINT: ...`, sends `SIM_AL_ACTION_EOC`, and continues boot.
+* **Zeroed `nvdata`/`nvcfg`/`nvram` cannot cause the EINT queries to fail or the EINT
+  registration to abort.** Those partitions matter later for RF calibration/IMEI and for FSD
+  file reads; the EINT path is DT+RPC only. (Zeroed NVRAM is still a real problem for network
+  registration, but it is not the explanation for this symptom.)
+
+### 31.5 Q3 — is SIM/EINT init on the critical path to HS2? (FACT + INFERENCE)
+
+* **FACT:** failure of any EINT getter or of `EINT_Registration()` is non-fatal. Phase 1 has
+  defaults; phase 2 does `goto LEAVE_REG_EINT` and then EOC. Nothing in either path aborts
+  modem boot or waits for HS2.
+* **FACT:** booting with no SIM is an explicitly supported path. Source comment at
+  `icc_switchControl_al.c:813`: *"we should always register eint. If we bootup without plugin
+  simcard, status will display NO_CARD. we will never get insert event because eint is not
+  registered"*. The internal SOP §3.5 also tests exactly this ("boot without card, then insert").
+* **FACT:** the leaked SOP §3.8 says plug-in/out events are ignored during modem boot because
+  "SIM Task 初始化未完成" — SIM task init is part of the boot sequence, but it is a *task*, not a
+  gate on HS2.
+* **INFERENCE (strong):** a modem can reach HS2/READY with no SIM and with failed EINT
+  registration. The old MTK FAQ "SIM hot swap does not work when the detect pin is EINT0"
+  describes exactly a `sim_reg_hot_plug_eint()` that silently does nothing for `eintNo==0`,
+  yet the phone still boots and detects a card at power-on; only hot-swap is broken.
+* **UNCERTAIN / hazard:** `usim_waitISR_with_spinlock()` (`sim_drv_SW_function.h:540-568`) is an
+  **infinite** `while (waitISR) { log "task waits for ISR"; kal_sleep_task(2 ticks); }` with no
+  timeout. If a SIM-task wait expects an ISR that never arrives, that task hangs forever. This
+  is the only plausible way SIM code could block HS2. It is used during USIM protocol
+  transactions (after VSIM is on and a command is issued), **not** at EINT registration, and
+  our VSIM is still off — so it is not the current stop point.
+
+**Corrected diagnosis:** the 12 RPCs completed; phase 1 returned; the MD has not yet entered
+`L1sim_Reset_All()` (no 13th RPC, VSIM off). The stall is **before SIM card reset**, in the
+driver/task init between `EINT_Setting_Init()` and the SIM task's first reset request — or in
+something the MD waits for from the AP after HS1. EINT/DT is a red herring for HS2.
+
+### 31.6 Q4 — public "S2 / TC 7" evidence
+
+* The `gmillz` gist is a **working** MT6765 boot:
+  ```
+  [14.384789] control message 0x0,0x5555FFFF      <- HS1
+  [14.393583] md_state change from 2 to 3
+  [14.397853] md_boot_stats0:0x54430007
+  [14.398675] md_boot_stats1:0x53320000
+  [14.405975] send runtime data 0
+  [14.826005] control message 0x0,0x0             <- HS2
+  [14.829529] md_state change from 3 to 4
+  [14.829771] ccci_md1: ready
+  ```
+  So `0x54430007` ("TC", 7 tasks) and `0x53320000` ("S2") are **normal post-HS1 markers**, not a
+  hang signature. HS2 arrives as control packet `0x0,0x0` ~0.42 s later.
+* A Reddit REVVL 6 Pro log shows `md_boot_stats0:0x5443000C` / `md_boot_stats1:0x53320000` on a
+  booting device — the task count varies (0x0C here), the `S2` half is constant.
+* **No public report was found of a modem stuck exactly after the 12 EINT RPCs.** The project's
+  trace appears undocumented; do not expect a matching forum thread.
+
+### 31.7 Q5 — string / FAQ index
+
+| String | Where it lives | Meaning |
+|---|---|---|
+| `task waits for ISR:%d, %x` | `sim_drv_SW_function.h:549/564`, `icc_switchControl0_mt6306.c:3696` | infinite wait loop for a SIM ISR (no timeout) |
+| `clear IRQEN, previous "wait event" is set by SIM_RegHotPlugCb` | `icc_sim_common_mtk.c:2642` | recovery after a hot-plug callback raced a command wait |
+| `[SIM_DRV][CO_DECK]EINT is registered` | `icc_switchControl_al.c:796` | common-slot (CO_DECK) already registered, skip |
+| `[registed]EINT: %d, %d %d %d %d %d %d` | `icc_switchControl_al.c:844` | per-slot registration dump |
+| `no md eint settings in DWS, LEAVE_REG_EINT` | `icc_switchControl_al.c:860` | RPC number query failed → skip registration, continue |
+| `get eint no fail ... ALPS DWS setting` | `icc_switchControl_al.c:874` | AP DT/DWS has no EINT number |
+| `EINT: %d, %d %d %d %d %d %d %d` / `EINT: %s` | `icc_switchControl_al.c:1016/1018` | mdlog line; fields = app, status, eintNo, debounce, polarity, sensitivity, socket, srcpin |
+| `EINT_SW_Debounce_Modify()` | `dcl_eint.c:1374` | sets SW debounce table (unit 10 ms), takes `md1_eint_lock` |
+| `SIM_RegHotPlugCb` | `icc_sim_common_mtk.c:146` | registers the plug-in/out callbacks (not the EINT itself) |
+| FAQ05831 | title only: "Platform differences in SIM hot swap EINT module" | per-platform EINT ownership/numbering differences |
+| FAQ17406 | MT6582/MT6592 SIM hot swap config (SOP §3.4.1) | AP codegen.dws + MD EINT config |
+| FAQ12120 | MT6290 SIM hot swap config (= 16rd thread 55304) | `L1sim_Reset_All()` polarity edit |
+| FAQ17420 | separate insert/remove debounce times (SOP §8) | debounce tuning |
+| FAQ13193 | check that all `codegen.dws` copies match (SOP §3.6 note 2) | mismatched DWS → wrong EINT info |
+
+### 31.8 Implications / next experiments
+
+1. **Stop treating the 12 RPCs as the failure.** They are phase 1 and are complete. Adding or
+   editing `md1_sim1_hot_plug_eint` cannot fix HS2; the current node is already canonical.
+2. The next observable milestone would be a **13th RPC (type 0 for SIM1)** followed by types
+   1,2,3,4, `EINT: 0, ...`, `turn on vsim0`, and ATR. None of that happens — VSIM stays off.
+3. Therefore look **earlier** than the SIM task: what runs after `custom_drv_init()` and before
+   the SIM task's reset request. Candidate areas: task creation/scheduling, the AP runtime-data
+   contents the MD consumes after HS1, PMIC/clock gates the MD touches during driver init, and
+   the MD's own init sequence (boot stats only say TC=7/S2).
+4. Useful experiment: instrument the AP RPC handler to log *all* `op_id`s after HS1 (not just
+   0x4005). If the MD issues no further RPC at all, the stall is local to the MD; if it issues
+   another op that the AP NAKs, that is the real blocker.
+5. Keep the NVRAM repair on the list for later (RF cal/IMEI), but do not expect it to change the
+   EINT trace or HS2 timing before FSD is reached.
+
+## HARDWARE INVENTORY FROM ANDROID (2026-10-27)
+
+Full inventory: **`hardware-dump/HARDWARE_INVENTORY.md`** (+ raw dumps in the same dir).
+Pulled while the retail Android ROM was running, because Android is the only source of
+working hardware configuration (LK-preloaded panel, vendor DTB, HALs).
+
+Key facts for the mainline port:
+- **LCM: `nt36525b_hdp_dsi_vdo_txd_boe_ke7`** — Novatek **NT36525B**, **720x1640 HD+,
+  DSI *video* mode**, TXD panel / BOE glass. (From `atag,videolfb` in the running DT.)
+- Backlight: `/sys/class/leds/lcd-backlight`, max **255**, PWM at **`1100e000.disp_pwm`**.
+- Touch: **Novatek NVT-ts-spi** on SPI @13.6 MHz (`novatek-mp-criteria-6232`); input dev `mtk-tpd`.
+- Keys: **`mtk-kpd` @ `10010000.kp`** (power + vol up/down); headset via **ACCDET**.
+- PMIC **MT6358**; charger **Richtek RT9471** @ i2c 0x53 (`richtek,swchg`).
+- Audio: **`mt6768-mt6358-sound`** + **external speaker amp on GPIO 39**
+  (`tran_audio,audio`, `extamp_mode=2`) — required for loudspeaker audio.
+- Camera: CAMSYS @1a000000, sub-sensors **GC02M1** + **OV02B10** in DT; main sensor only
+  in the MTK imgsensor table.
+- Sensors: accel/light/prox/step/tilt/wake-gesture, all behind the **SCP** (chips not in DT).
+- WiFi `18000000`, BT MTK BTIF, GNSS MTK, GPU Mali-G52 MC2 @13040000, vdec @16000000,
+  venc @17000000, eMMC @11230000, USB @11200000.
+- Kernel **4.14.141**; `kconfig.gz` captured for driver comparison.
+- Thermal zones: mtktscpu/mtktsAP/mtktsbattery/mtktspmic/mtktscharger/mtktspa/mtktswmt/
+  mtktsdctm/mtktspmic buckets, tzimgs0..6; policies in `cfg/tp/`.
+
+Mainline gap: the **display** (NT36525B panel + mtk_dsi + PWM backlight) and the
+**speaker amp GPIO** are the two things that most likely block a usable port; both are
+now documented precisely.
+
+---
+
+## 32. Runtime META over USB — Vendor Init Wiring & the adbd Rebuild Loop (Oct 28, 2026)
+
+Context: bootloader META is unusable on this LK (see §50 of `PROJECT_STATUS.md`),
+so the modem must be reached from a running Android. This section records the
+vendor plumbing and the exact failure modes, so no future session re-derives them.
+
+### 32.1 Boot-mode flag is not a register
+
+`/sys/class/BOOT/BOOT/boot/boot_mode` is a **file inside a mounted f2fs partition**:
+
+```
+/dev/block/mmcblk0p43 on /sys/devices/virtual/BOOT/BOOT/boot/boot_mode type f2fs (rw,...)
+```
+
+Writing `1` persists across reboot (verified) but **LK does not consult it**.
+What it does control is the userspace check in `meta_tst`, which exits with:
+
+```
+[Meta] Normal mode boot!
+[Meta] is normal mode
+[Meta] Normal mode flag is not 1,exist!
+```
+
+Bind-mounting a one-byte file containing `1` over the node satisfies the check:
+
+```sh
+printf 1 > /data/local/tmp/fbm
+mount --bind /data/local/tmp/fbm /sys/class/BOOT/BOOT/boot/boot_mode
+nohup /vendor/bin/meta_tst >/data/local/tmp/meta_tst.out 2>&1 &
+```
+
+Observed result: `meta_tst` stays alive and holds
+`/dev/ccci_ccb_meta`, `/dev/ccci_ccb_ctrl`, `/dev/pmsg0` and a netlink socket.
+It does **not** switch the modem (AT still returns `OK`), because it waits for a
+PC-side client on its serial transport before issuing `AT+EMETACFG=1`.
+
+### 32.2 Vendor META/ATM USB layouts (`/vendor/etc/init/hw/`)
+
+| Property value | Functions linked | PID | Notes |
+|---|---|---|---|
+| `ro.boot.usbconfig=0` | mass_storage + ffs.adb + acm.gs0 | 0x2006 / 0x200E | "adb_acm" |
+| `ro.boot.usbconfig=1` | acm.gs0 (alone) | 0x2007 | **true META**, `bDeviceClass 02`, block commented out ("move this to kernel driver") |
+| `ro.boot.usbconfig=2` | mass_storage + acm.gs0 + acm.gs3 | 0x202D | META+ELT, also commented |
+| `ro.boot.usbconfig=3` | mass_storage + ffs.adb + acm.gs0 + acm.gs3 | 0x2040 | META+ELT+ADB |
+| `sys.usb.config=atm_gs0` | mtp.gs0 + ffs.adb + **acm.gs0** | **0x200A** | Android Test Mode; `vendor.usb.acm_idx=1` |
+| `sys.usb.config=atm_gs0gs3` | mtp + adb + acm.gs0 + acm.gs3 | 0x2026 | |
+| `sys.usb.config=via_bypass` | via_modem + via_ets + via_atc | 0x2031/0x2033 | ATE, no adb |
+| `sys.usb.config=via_bypass,adb` | + ffs.adb (+ optional acm) | 0x2032/0x2034/0x2050 | ATE with adb |
+| `sys.usb.config=gs1gs3` | mass_storage + adb + acm.gs1 + acm.gs3 | 0x2029 | connected AC ports, **no gs0** |
+
+`meta_tst` strings reference `/dev/ttyGS0` and `persist.vendor.meta.connecttype`
+(`usb` / `wifi`), and its init trigger is
+`sys.boot_completed=1 && ro.boot.atm=enable` (`init.mt6768.rc:1054`).
+Current `ro.boot.atm=disabled`, so it never starts by itself.
+
+`meta_tst` also parses CCCI ioctls (`CCCI_IOC_SET_MD_BOOT_MODE`,
+`CCCI_IOC_GET_MD_BOOT_MODE`) and sends `AT+EMETACFG=1` — that is the actual
+runtime modem switch, not the boot-mode file.
+
+### 32.3 Proven transport: gadget ACM works, with a numbering trap
+
+After `setprop sys.usb.config gs1gs3`:
+
+- host: `0e8d:2029`, `/dev/ttyACM0` + `/dev/ttyACM1`, adb still connected
+- `printf 'PINGGS1-1\n' > /dev/ttyGS1` on the phone appeared on host `/dev/ttyACM0`
+
+So **acm.gsN does not map to ttyGSN**. Bind order decides the tty index; always
+identify by writing to each `/dev/ttyGS*` and watching the host port, or read
+`/config/usb_gadget/g1/configs/b.1/f*` and test.
+
+### 32.4 The 6-second re-enumeration loop (root cause)
+
+With `atm_gs0` the phone re-enumerated every ~6 s; host udev showed
+`ttyACM0` remove/add in bursts, phone dmesg showed
+`configfs-gadget gadget: USB_REQ_SET_CONFIGURATION: value=0`, and adbd logged
+`remote usb: read terminated (message): No such device` → `registering usb transport`.
+
+Cause is an init retrigger:
+
+```text
+on property:vendor.usb.ffs.ready=1 && property:sys.usb.config=atm_gs0 && \
+property:vendor.usb.clear=2 && property:sys.usb.configfs=1
+    ... write /config/usb_gadget/g1/UDC ${vendor.usb.controller} ...
+```
+
+`vendor.usb.clear` stays `2` after the first build. Every time adbd reopens ep0
+after a reset, `sys.usb.ffs.ready` goes 0→1, which re-runs the whole block and
+rebinds the UDC. That is the loop.
+
+Setting `vendor.usb.clear 0` stops the retrigger, **but** if it is set while the
+gadget is mid-reset the UDC ends up unbound and the phone disappears from USB
+completely (no `0e8d` device, no adb). Recovery requires a cable replug or reboot —
+the config remains in configfs and `persist.sys.usb.config=atm_gs0`.
+
+### 32.5 Negative results (do not repeat)
+
+- Preloader `METAMETA` handshake on `/dev/ttyACM0`: no `READY` on this preloader
+  (tried both mtkclient and a raw 115200 termios client). The tty node also
+  survives unplug as a dead leftover, so **trigger on sysfs `0e8d:2000`**, never on
+  the node's existence.
+- `0e8d:20ff` is KPOC/HID off-mode charging — not META.
+- `/sys/bus/platform/drivers/meta_uart_port_info` does not exist on this kernel;
+  `meta_tst` logs "com port type is not uart" and falls back to USB.
+- `sys.usb.state` mismatch does not cause the flap; aligning it changed nothing.
+
+### 32.6 Next step
+
+Build the gadget once (`atm_gs0`), **verify 60 s of stability before** touching
+`vendor.usb.clear`, then start `meta_tst` with the bind-mounted boot_mode and
+check `/proc/<pid>/fd` for `/dev/ttyGS0`. Map host `/dev/ttyACM0` to Wine COM1
+and let ModemMETA connect. All of this is only useful if `/dev/ttyGS0` stays
+bound; otherwise fall back to the QEMU Windows VM with `usb-host` passthrough.
+
+### 32.7 Correction: the flapping was host-side gvfsd-mtp
+
+`fuser -v /dev/bus/usb/003/127` showed **`gvfsd-mtp`** holding the phone's USB
+device node. GNOME's MTP volume monitor resets the device as soon as an MTP
+function (`mtp.gs0`, `mass_storage`) is in the gadget config. Symptom chain:
+gvfs reset -> host re-enumeration -> `ttyACM0` remove/add -> adbd transport loss
+-> phone dmesg `USB_REQ_SET_CONFIGURATION: value=0`.
+
+`pkill -x gvfsd-mtp` stopped the resets entirely. Use `pkill -x` (process name),
+never `pkill -f` (the pattern matches the invoking shell and kills it).
+
+The init `ffs.ready` rebuild rule is real but was not the trigger; it only made
+the symptom visible in the logs.
+
+ModemMETA connect types (from `MetaApp.dll`): `connectType :%d(enum:uart=0;usb=1;wifi=2;)`
+with `Connecting socket failed: ip = %s, port = %d` — TCP works under Wine.
+
+### 32.8 com-port-type gate in meta_tst (solved)
+
+Missing driver node: `/sys/bus/platform/drivers/meta_com_type_info/meta_com_type_info`.
+`meta_tst` reads a single integer from it:
+
+- `0` -> USB  (`/dev/ttyGS0`)
+- `1` -> UART (`/dev/ttyS0`)
+- `2` -> WiFi (per `MetaApp.dll`: `uart=0;usb=1;wifi=2`)
+
+It cannot be created in sysfs, so run `meta_tst` inside `unshare -m` with a tmpfs
+mounted over `/sys/bus/platform/drivers` containing a real directory and file.
+See `PROJECT_STATUS.md` section 50.3 for the exact command sequence.
+
+With `0`, `meta_tst` holds `/dev/ttyGS0` and reports `CCB is ready`; the modem
+switch (`AT+EMETACFG=1`) happens only once the PC-side META client handshakes.
+
+ModemMETA's CLI (`bin/MetaCLI.exe`, manual section 9) accepts
+`IMEI=<imei1>,<imei2>`, `ComPort=COMx`, `ComPortType=USB`, `PlatformType=...`,
+`ApDB=...`, so the write can be scripted against a Wine COM port mapped to the
+phone's ACM interface.
