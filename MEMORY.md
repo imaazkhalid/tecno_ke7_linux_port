@@ -83,6 +83,36 @@ The Linux boot set is **six partitions that only work together**:
 | `0e8d:0003` stays | BROM, waiting for DA — safe to flash |
 | nothing on USB at all | phone off / flat battery / bad cable |
 
+### 3.2 Failure signatures — read this before touching anything
+
+**If the host log shows `error -71` / `device descriptor read/64` / `unable to enumerate`
+and no `idVendor=0e8d`, no tool can help.** The phone never finished USB enumeration,
+so there is no `/dev/bus/usb` node for mtkclient to open. Observed 2026-10-31 17:00-17:20.
+
+What the phases mean (measured that day):
+
+| Preloader USB window | Cause | Result |
+|---|---|---|
+| ~25 s | battery low, preloader parks in charge mode | enumerates cleanly |
+| ~3 s | battery charged, phone actually tries to boot | descriptor reads fail `-71`, reset loop |
+
+So a **charged phone enumerates *worse* than a low one** — it tries to boot and dies
+faster. Do not read `-71` as "listener bug" or "damaged hardware": a successful
+480 Mbps chirp (`new high-speed USB device`) already proves the PHY and D+/D- work.
+
+**Escape is the BROM strap, not a better listener:**
+1. unplug, hold **Power 15 s** (force off),
+2. hold **Volume Up** (or Vol Up + Vol Down),
+3. plug in, hold ~3 s, release.
+
+BROM then waits indefinitely — no window to miss. Confirmed working 2026-10-31 17:20:
+`Preloader - BROM mode detected` → `DAA_SIG_VERIFY_FAILED` (normal, patched) →
+`Kamakiri Run` → `DA sync` → writes.
+
+Reading `/sys/.../idVendor` and `journalctl` **cannot** reset the phone. Only
+mtkclient opening the device can. If a reset loop persists with everything killed,
+it is the phone, not the tooling.
+
 ## 4. Recovery / flashing rules
 
 - **Before any write:** `./tools/save-state.sh <label>`.
@@ -116,14 +146,15 @@ w vbmeta $B/mmcblk0p34.bin;w vbmeta_system $B/mmcblk0p35.bin;w vbmeta_vendor $B/
 
 ## 6. Next steps (in order)
 
-1. Finish `backup/android-full-*` (super+userdata).
-2. BROM: write **port-era LK** (p27/p28 from `arch_state`) + **known-good p30**.
-3. Boot → U-Boot → systemd-boot (ESP p40) → kernel + **SD rootfs**
-   (`arch.conf` already points to the SD PARTUUID).
-4. If Linux works: test display/touch/modem; keep Android as default by restoring
-   `backup/known-good-rooted-*` boot.
-5. If it still loops: restore Android and switch strategy (kexec/netboot), do not
-   rebuild boot images blindly.
+1. ~~Finish `backup/android-full-*`~~ — done, 14 GB, `zstd -t` OK.
+2. ~~BROM: write port-era LK/lk2 + known-good boot + all three vbmeta~~ — **done
+   2026-10-31 17:20**, all six partitions written and log-confirmed.
+3. **Unplug / replug and boot** → U-Boot → systemd-boot (ESP p40) → kernel + SD rootfs.
+   Expect `0e8d:2000` → `1d6b:0104` (Linux gadget), then `ping 172.16.42.2`.
+4. If Linux works: verify kernel, rootfs (673 pkgs), ssh, `dmesg` over USB.
+5. If it does not boot: the boot set is no longer the suspect (all six match) — get a
+   serial/UART log or check the U-Boot env `bootcmd` (`mmc 0:28` is stale, ESP is p40).
+   Do **not** rebuild boot images blindly; restore Android with `tools/boot-to-android.sh`.
 
 ## 7. Documentation map
 
