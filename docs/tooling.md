@@ -9,6 +9,7 @@ automate. This page explains what each tool does and the traps it avoids.
 
 | Tool | Purpose |
 |---|---|
+| `save-state.sh` | **snapshot boot/recovery/vbmeta/misc/NV to the laptop before any write** |
 | `brom_check.sh` | detect `0e8d:0003` and print the GPT |
 | `unlock_device.sh` | write `seccfg` (unlock) + a disabled `vbmeta` |
 | `flash_retail.sh` | flash the retail Android ROM, preserving critical partitions |

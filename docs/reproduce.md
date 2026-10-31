@@ -93,6 +93,12 @@ resort (out of scope here).
 
 ### 2.2 Back up everything first
 
+> **Project rule:** run [`../tools/save-state.sh`](../tools/save-state.sh) before
+> **every** write operation (flash, `dd`, fastboot). It snapshots boot, recovery,
+> both vbmetas, misc, seccfg, boot_para, proinfo and the NV partitions with a
+> SHA-256 manifest. Rolling back then costs one `dd`, instead of reflashing stock
+> and losing root/Magisk modules/IMEI provisioning.
+
 ```bash
 mkdir -p backup
 python3 mtkclient/mtk.py printgpt | tee backup/gpt_before.txt

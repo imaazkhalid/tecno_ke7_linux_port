@@ -57,6 +57,30 @@ The original port worked because it ran with `vbmeta_disabled.img`
 - `vbmeta` replaced with a disabled image, **or**
 - a matching AVB footer (`avbtool add_hash_footer`) and the corresponding vbmeta.
 
+### 3b. Two AVB layers — disabling vbmeta is not enough
+
+AVB has **two** independent pieces:
+
+| Layer | What it is | Effect of disabling |
+|---|---|---|
+| `vbmeta` partition | top-level metadata, chain descriptors | verification policy off |
+| **footer inside each `boot` image** (`AVBf`) | per-image vbmeta + hash descriptor + size | **still required** — LK parses it to learn the image layout |
+
+Proof: the Magisk-patched `boot` that boots on this phone is signed with a
+**different key** (`9d808b…`) than the stock `vbmeta` (`cdbb77…`), so signatures are
+not enforced while unlocked. But it *has* a footer. Our rebuilt U-Boot had none and
+was rejected even with `vbmeta_disabled` flashed.
+
+Fix: run `avbtool add_hash_footer` on the unpacked content before padding:
+
+```bash
+avbtool add_hash_footer --image uboot_content.img \
+  --partition_size 33554432 --partition_name boot --algorithm NONE
+```
+
+(`--algorithm NONE` produces an unsigned footer; LK accepts it with an unlocked
+bootloader.)
+
 ### 4. BROM entry key changed
 On the current retail bootloader, BROM is **Volume Up + plug**. The older
 Vol Up + Vol Down combo no longer applies.
