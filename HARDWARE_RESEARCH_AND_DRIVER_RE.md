@@ -23,6 +23,7 @@
 30. [MT6768 Power/Clock Internals — Vendor-Kernel Register Research](#30-mt6768-powerclock-internals--vendor-kernel-register-research-oct-25-2026)
 31. [SIM Hot-Plug EINT: Leaked LR12A.R3.MP Source Analysis and Correction of §29](#31-sim-hot-plug-eint-leaked-lr12ar3mp-source-analysis-and-correction-of-29-oct-25-2026)
 32. [Runtime META over USB — Vendor Init Wiring & the adbd Rebuild Loop](#32-runtime-meta-over-usb--vendor-init-wiring--the-adbd-rebuild-loop-oct-28-2026)
+33. [IMEI Restoration via SN Write Tool — TEE Bypass and GUI Automation](#33-imei-restoration-via-sn-write-tool--tee-bypass-and-gui-automation-oct-31-2026)
 
 ---
 
@@ -1528,3 +1529,81 @@ ModemMETA's CLI (`bin/MetaCLI.exe`, manual section 9) accepts
 `IMEI=<imei1>,<imei2>`, `ComPort=COMx`, `ComPortType=USB`, `PlatformType=...`,
 `ApDB=...`, so the write can be scripted against a Wine COM port mapped to the
 phone's ACM interface.
+
+## 33. IMEI Restoration via SN Write Tool — TEE Bypass and GUI Automation (Oct 31, 2026)
+
+**Outcome:** both IMEIs of the unit were restored and verified by the tool's own
+read-back (`Check nvram data PASS!!`), plus `prod_info` (1024-byte
+`AP_CFG_REEB_PRODUCT_INFO_LID`) rewritten with `sn_flag = 0x0005`
+(IMEI | Barcode | Pass).
+
+### 33.1 Why the tool refused to run
+`SN_Writer.exe` (v1.2020.00) checks a TEE provisioning licence at startup:
+
+```
+TEE stuff path: ...\tee_stuff
+use VTurkeyLicenser
+KPHA_Init failed            <- LibreKPHA.dll returns -3
+```
+
+`tee_stuff/kph_in/kph_env.ini` has `vturkey=true` and
+`keybox_uuid=0000_0000...` (all zeros), i.e. no licence was ever provisioned for
+this unit, and the online `pl.trustkernel.com` service cannot issue one for a
+decommissioned device.
+
+### 33.2 The bypass (1 byte)
+Disassembly around the failure (`rizin`):
+
+```
+0x4125e1  call [LibKPHA.dll__KPHA_Init2_8]
+0x4125e7  test eax, eax
+0x4125e9  jns  0x41264c        ; 79 61   <- only taken when eax >= 0
+0x4125eb  mov byte [ebp-0x11f5], 1
+...
+```
+
+Patch VA `0x4125e9` (file offset `0x119e9`): `79 61` -> `EB 61`
+(`jns` -> `jmp`). The whole TEE provisioning path is skipped; the NV/prod_info
+writes do not need it. `KPHA_Init` is the *only* consumer of the licence in the
+IMEI flow — no later stage calls back into `LibKPHA`/`LibTurkey`.
+
+### 33.3 NV record semantics confirmed on hardware
+The tool reads the record length through the modem:
+`META_NVRAM_GetRecLen(): LID = "NVRAM_EF_IMEI_IMEISV_LID" -> struct size = 10`.
+So the modem-side record is 10 bytes per IMEI (BCD + flag byte), and the
+`NV0S_000` container we decoded earlier (LID `0xF00A`, 144 bytes, two 0x20-byte
+items, attr `0x6081`) is the *file-system view* of the same data — the modem
+API is the supported write path, which is why hand-editing `NV0S_000` could
+never work (the modem re-encrypts / re-signs with its OTP-derived key).
+
+Read-back verification is done inside the same META session immediately after
+the write, so a PASS is authoritative.
+
+### 33.4 GUI automation that finally worked
+The tool has no CLI. Driving it required three distinct discoveries:
+
+1. `BM_CLICK` (`0x00F5`) posted to button id `1002` starts the flow; the
+   `Scan Data` dialog exposes IMEI_1 = edit `1056`, IMEI_2 = edit `1058`,
+   OK = button `1071`.
+2. `SetWindowText` **does not** feed the application's model — it validates an
+   empty string ("IMEI_1 = ''!"). Real key events are mandatory.
+3. Real key events only work when the window is foreground and focused. In a
+   VM this means: force the dialog `HWND_TOPMOST`, and send *two* clicks
+   (the first click on an inactive window only activates it).
+
+Final architecture (all in `tools/`):
+`vm_exec.py` (guest agent, SYSTEM) → `snw_prep.ps1` (launch, Start, report
+control rects, topmost, state file) → `snw_drive.py` (QMP absolute
+coordinates, type, click) → read `C:\SNWriter_LOG\<ts>\SN Writer.log`.
+
+### 33.5 Negative results worth remembering
+- `GetWindowText` from another process returns an empty string for controls;
+  it is not a valid way to verify GUI state. Use the app's log or screenshots.
+- `UIAutomation ValuePattern` is not supported by these Delphi-style edits.
+- `WM_CHAR` posted to an unfocused edit is ignored, even with correct text
+  encoding.
+- ModemMETA's NVRAM database loader rejects every available DB; SN Writer's
+  `META_NVRAM_Init_Ex_Mdtype_r` accepts the same EDB when the filename is
+  correct. The failure mode `File read/write error` is literally "file not
+  found" — always confirm the exact filename in the guest before debugging
+  deeper.

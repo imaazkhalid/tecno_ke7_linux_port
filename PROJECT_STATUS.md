@@ -2118,8 +2118,8 @@ Phone should be powered off to avoid draining the battery in META.
 6. Click **Start**. With `Already in Meta = True` it should connect to `202D MI_01`,
    read the DBs, and ask for IMEI1/IMEI2 (or use Key Files/Identify).
 7. Enter the device's own IMEIs (only in the live dialog; never in the repo):
-   IMEI1 `<IMEI1>`, IMEI2 `<IMEI2>` (recorded here as the user's own
-   device values; do not commit them to any remote).
+   IMEI1 `<IMEI1>`, IMEI2 `<IMEI2>` (the user's own device values; kept only in the
+   live command, never committed).
 8. After Pass, power-cycle the phone and verify with `*#06#` / `getprop`.
 
 ### Known GUI/VM hazards (learned the hard way)
@@ -2132,3 +2132,91 @@ Phone should be powered off to avoid draining the battery in META.
   mouse in the virt-manager console is the reliable fallback.
 - `modemmeta`'s "Load NVRAM database" rejects: firmware EDB, APDB, phone
   `mddb.xml.gz` and `mddb.edb` — do not retry those.
+
+## 54. IMEI RESTORED — SN Write Tool success, 2026-10-31
+
+**Result: both IMEIs written back to the device and verified by read-back.**
+Log (`C:\SNWriter_LOG\2026-10-31-04-02-32\SN Writer.log`):
+
+```
+SmartPhoneSN: Write_IMEI[<IMEI1>] / Read_IMEI[<IMEI1>] ... Check nvram data PASS!!
+SmartPhoneSN: Write_IMEI[<IMEI2>] / Read_IMEI[<IMEI2>] ... Check nvram data PASS!!
+SmartPhoneSN::REQ_BackupNvram2BinRegion_Start() : Backup nvram successfully!!
+Prod_Info->IMEI[0]/[1] written, sn_flag = 0x0005 (IMEI|Barcode|Pass)
+SmartPhoneSN: Check prod_info data PASS!!
+SmartPhoneSN::All Operate successfully!!
+```
+
+### The three blockers that had to be solved
+1. **TEE/KPHA licensing gate** (`KPHA_Init failed`, `use VTurkeyLicenser`,
+   zero `keybox_uuid`). Bypassed with a 1-byte patch in `SN_Writer.exe`:
+   - VA `0x4125e9`, file offset `0x119e9`, bytes `79 61` (`jns 0x41264c`)
+     -> `EB 61` (`jmp 0x41264c`).
+   - This skips the `KPHA_Init` result check. Everything after it (AP DB, modem
+     meta, NV read/write, prod_info) needs no TEE at all.
+   - Original kept as `SN_Writer.orig.exe`; patched copy is `SN_Writer_patched.exe`.
+2. **Wrong MDDB filename in `SN_Setup.ini`.** The toolkit has
+   `MDDB_InfoCustomAppSrcP_MT6768_S00_MOLY_LR12A_R3_MP_V118_11_P5.EDB`
+   (16,723,479 B) but the ini referenced `..._V118_11_P53_1_ulwctg_n.EDB`,
+   producing `META_NVRAM_Init_Ex_Mdtype_r(): ... File read/write error`.
+   Fixed by pointing `Modem_1 database path` at the real file
+   (repo copy: `tools/SN_Setup.patched.ini`).
+3. **GUI input.** See "automation" below.
+
+### Working recipe (reproducible)
+Prereq: phone in real META (`0e8d:202D`), attached to the VM, and the VM's
+`SN_Setup.ini` = `tools/SN_Setup.patched.ini`
+(`Already in Meta = True`, `Keep in Meta = True`, `IMEI Nums = 2`,
+`AP DB from DUT = False`, `MD DB from DUT = False`,
+`Ignore Database Inconsistent = True`).
+
+```
+# host
+virsh -c qemu:///session attach-device WINMETA tools/vm-usb-meta.xml --live
+python3 tools/vm_exec.py put tools/SN_Setup.patched.ini 'C:\Users\mk\SN\SN_Write_Tool_v1.2020.00\SN_Setup.ini'
+
+# guest: launch app + open Scan Data (writes control rects + live state)
+python3 tools/vm_exec.py run cmd.exe /c 'schtasks /run /tn SNWPREP'
+
+# host: real input through QMP using the rects the guest reported
+python3 tools/snw_drive.py <IMEI1> <IMEI2>
+```
+
+### Automation architecture (replaces screenshot ping-pong)
+- `tools/vm_exec.py` — QEMU guest agent (`guest-exec`/`guest-file-*`). Runs as
+  **SYSTEM**; GUI apps must be started in the user session via `schtasks /ru mk /it`.
+- `tools/snw_prep.ps1` — launches SN Writer, clicks Start via `BM_CLICK` on
+  button id `1002`, waits for the `Scan Data` dialog, reports the exact screen
+  rectangles of controls `1056` (IMEI_1), `1058` (IMEI_2), `1071` (OK) and keeps
+  writing the app state to `C:\Users\mk\snw_state.txt`. Also forces the dialog
+  `HWND_TOPMOST` so nothing can cover it.
+- `tools/snw_drive.py` — converts those rects to QMP absolute coordinates
+  (`x*32768/screenW`, `y*32768/screenH`), double-clicks each edit (the first
+  click only activates the window — click-through prevention), types the IMEI
+  with real QMP key events, then clicks OK.
+- Results are read from `C:\SNWriter_LOG\<ts>\SN Writer.log` via the agent,
+  not from the GUI.
+
+### Hazards found this session (do not repeat)
+- **`GetWindowText` cannot read another process's control text** — it returns
+  empty. This wasted a cycle ("fields not set" while the screenshot showed them
+  filled). Use the app's own log, a screenshot, or `WM_GETTEXT` marshalling.
+- **`SetWindowText` sets the visible edit but the app validates its own model**;
+  real key events are required. `SendInput`/`keybd_event` from a task also fails
+  unless the app is the foreground window.
+- **First QMP click on an inactive window is swallowed** (activation only);
+  always click twice.
+- **The scheduled-task console steals foreground.** Launch helpers with a
+  hidden VBS wrapper or force the target window topmost.
+- **Windows Update banner** ("We've got an update for you") covered the app and
+  scheduled a reboot. Disabled in the VM:
+  `HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU`
+  `NoAutoUpdate=1`, `AUOptions=2`, `NoAutoRebootWithLoggedOnUsers=1`;
+  services `wuauserv` and `UsoSvc` set to disabled.
+- `guest-file-open` handles leak if a write aborts — always close in `finally`
+  (fixed in `tools/vm_exec.py`); a leaked handle locks the file in the guest.
+
+### Next steps
+1. Power-cycle the phone (it is left in META by `Keep in Meta = True`).
+2. Verify: `*#06#` and `getprop | grep -i imei` (or `service call iphonesubinfo`).
+3. Resume debloat + full hardware map (`HARDWARE_RESEARCH_AND_DRIVER_RE.md`).
