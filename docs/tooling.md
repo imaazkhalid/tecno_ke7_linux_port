@@ -141,6 +141,7 @@ real key events.
 | `guest-file-open` without close | file stays locked in the guest | close handles in `finally` (already fixed in `vm_exec.py`) |
 | QMP `send-key` modifiers | Meta/Ctrl can stick | release modifiers explicitly, then `Esc` |
 | Windows Update banner | covers the app and reboots the VM | disable `wuauserv`/`UsoSvc`, set `NoAutoRebootWithLoggedOnUsers=1` |
+| **Concurrent USB pollers during BROM** | another tool (`fastboot devices`, a second watcher) opening the MTK USB device kills the DA upload: `Status error: Wrong magic` + `Device disconnected` | run exactly **one** mtkclient session; pre-arm it (`wait_for_device`) instead of polling USB yourself |
 
 ### 4.4 SN Write Tool configuration
 

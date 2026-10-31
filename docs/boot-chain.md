@@ -118,7 +118,7 @@ permanent brick on MTK. Leaving it unlocked ("orange state") is the safe state.
 
 | Mode | How | USB ID |
 |---|---|---|
-| BROM | Vol− + Vol+ while plugging on a powered-off phone | `0e8d:0003` |
+| BROM | **Vol Up + plug** on a powered-off phone (current bootloader). Before the retail flash the combo was Vol Up + Vol Down. | `0e8d:0003` |
 | Preloader | plug in without keys, catch the ~2 s window | `0e8d:2000` |
 | META | preloader + host sends `METAMETA` | `0e8d:202d` |
 | Fastboot | Vol+ at power-on (stock LK) | `0e8d:201c`-class |

@@ -83,9 +83,10 @@ lsusb | grep -i mediatek
 ### 2.1 Enter BROM
 
 1. Power the phone off (hold Power ~10 s).
-2. Hold **Volume Down + Volume Up**.
+2. Hold **Volume Up** (on the current retail bootloader; older builds used
+   Volume Up + Volume Down).
 3. Plug the USB cable.
-4. Release the keys when `lsusb` shows `0e8d:0003`.
+4. Release when `lsusb` shows `0e8d:0003`.
 
 If this never works, the preloader may be dead — a test-point short is the last
 resort (out of scope here).
