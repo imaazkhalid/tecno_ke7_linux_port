@@ -100,6 +100,31 @@ mtkclient session; it has its own `wait_for_device` loop.
 
 `zero_misc.bin` is 6 152 192 bytes of zeros (clears the `boot-recovery` BCB).
 
+### 7. gzip header matters
+The working payload's kernel is gzip with a *clean* header:
+
+```
+1f 8b 08 00 00 00 00 00 02 ff      (FLG=0, mtime=0, OS=0xff)
+```
+
+A modern `gzip -9` produces `FLG=0x08` (FNAME set) and a timestamp:
+
+```
+1f 8b 08 08 3f 97 e5 6a 02 03
+```
+
+Minimal bootloader decompressors can reject the filename field. Build the kernel
+with `gzip -9 -n` and force the OS byte to `0xff` to match the vendor format.
+
+### 8. What the winning image must look like
+
+| Property | Known-good payload | Rebuilt image |
+|---|---|---|
+| gzip FLG / mtime / OS | 0 / 0 / 0xff | must match |
+| Kernel entry | `18 00 00 14` | same |
+| Footer | `AVBf`, Algorithm NONE, 512 B vbmeta | same |
+| Layout | header + gzip + 27 MB ramdisk | same |
+
 ## Next steps when resuming
 
 1. Re-root Android (Magisk is still installed on `/data`; patch the stock boot image
