@@ -113,6 +113,22 @@ Reading `/sys/.../idVendor` and `journalctl` **cannot** reset the phone. Only
 mtkclient opening the device can. If a reset loop persists with everything killed,
 it is the phone, not the tooling.
 
+### 3.3 The USB/SoC latch — battery pull is the only clear
+
+Confirmed 2026-10-31 17:19. After the failed flashes the phone sat in a latched state:
+it pulled up USB (high-speed chirp OK) but died at the first descriptor read, every
+time, with **nothing** running on the host. No button combination, no listener design,
+and no cable change affected it.
+
+**Opening the phone, disconnecting the battery, reconnecting it, then plugging the
+USB cable in with NO buttons held → instant `0e8d:2000` then `0e8d:0003`, and the
+flash went through on the first attempt.**
+
+So before concluding "cable" or "hardware damage", and before burning hours on
+listener redesigns: **pull the battery.** It is a two-minute fix and it was the actual
+root cause both times the phone appeared unreachable. Document this before touching
+any tooling.
+
 ## 4. Recovery / flashing rules
 
 - **Before any write:** `./tools/save-state.sh <label>`.
