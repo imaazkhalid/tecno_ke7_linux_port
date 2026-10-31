@@ -4,6 +4,8 @@
 > redistributing them is not something we can do. What we *can* give you is the exact
 > build identification, the file manifest with **SHA-256 checksums**, and a verifier —
 > so the image you download is provably the one this project was built against.
+>
+> **Where to get it:** see [sources.md](sources.md) for mirrors and provenance.
 
 ---
 

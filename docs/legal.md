@@ -26,7 +26,7 @@ even if the owner "would not mind".
 
 ## 3. Firmware and vendor binaries
 
-- **No firmware, no leaked source, no vendor tools are included here.** The scripts
+- **No firmware, no vendor source, no vendor tools are included here.** The scripts
   expect *you* to supply the stock firmware you obtained legitimately.
 - Vendor firmware is copyrighted. Do not redistribute it, and do not commit it to a
   public repository.

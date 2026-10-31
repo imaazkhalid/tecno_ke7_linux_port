@@ -187,6 +187,7 @@ Start at [`docs/index.md`](docs/index.md) for the full map, or jump straight to:
 - **[Hardware reference](docs/hardware.md)** — everything we measured
 - **[Modem deep dive](docs/modem.md)** — CCCI, CLDMA and the clock-gating bug
 - **[IMEI restoration](docs/imei-restore.md)** — the NV format and the META protocol
+- **[Sources and provenance](docs/sources.md)** — where to obtain firmware, tools and vendor source
 - **[Raw research log](docs/reference/hardware-research.md)** — the unfiltered engineering notebook
 
 ---

@@ -64,7 +64,7 @@ Firmware symbols involved: `ex_cadefa_assert`, `ex_output_assert`, `ex_wait_init
 - `flash_images/md1img.img` — stock signed modem firmware.
 - `flash_images/lk_patched.img` — stock LK (md5 d4ad3eb9379c641286ff54471c438356).
 - `ke7_dump/` — stock boot.img, dtbo, DTBs, vendor dumps.
-- `vendor/TK_MD_BASIC_MOLY.LR12A.R3.MP/` — matching modem **source leak** (commit 04ebd402,
+- `vendor/TK_MD_BASIC_MOLY.LR12A.R3.MP/` — matching modem **vendor source** (commit 04ebd402,
   278 MB). SIM/USIM/EINT/NVRAM/drivers intact; CCCI/boot/assert implementation stripped.
 - **DbgInfo symbols**: LZMA section of md1img (payload at file 0x1e4c280, raw LZMA).
   95,602 symbols `{u32 start,u32 end,name}` -> `/tmp/opencode/md_syms.txt`

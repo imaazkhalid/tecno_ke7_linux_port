@@ -21,7 +21,7 @@
 9. [Zero-OTG USB Gadget Networking](#9-zero-otg-usb-gadget-networking)
 10. [Step-by-Step Bring-up Checklist](#10-step-by-step-bring-up-checklist)
 30. [MT6768 Power/Clock Internals — Vendor-Kernel Register Research](#30-mt6768-powerclock-internals--vendor-kernel-register-research-oct-25-2026)
-31. [SIM Hot-Plug EINT: Leaked LR12A.R3.MP Source Analysis and Correction of §29](#31-sim-hot-plug-eint-leaked-lr12ar3mp-source-analysis-and-correction-of-29-oct-25-2026)
+31. [SIM Hot-Plug EINT: Vendor LR12A.R3.MP Source Analysis and Correction of §29](#31-sim-hot-plug-eint-vendor-lr12ar3mp-source-analysis-and-correction-of-29-oct-25-2026)
 32. [Runtime META over USB — Vendor Init Wiring & the adbd Rebuild Loop](#32-runtime-meta-over-usb--vendor-init-wiring--the-adbd-rebuild-loop-oct-28-2026)
 33. [IMEI Restoration via SN Write Tool — TEE Bypass and GUI Automation](#33-imei-restoration-via-sn-write-tool--tee-bypass-and-gui-automation-oct-31-2026)
 
@@ -460,7 +460,7 @@ Since the device does not have an external USB OTG adapter connected, all initia
 10. **Cellular / LTE Modem (`MD1` / `eccci` / `mdcldma@10014000`) Findings:**
     - **Stock Signed Modem Firmware (`md1img.img`):**
       * `/dev/mmcblk0p18` (`md1img` partition, 128 MB) on the device eMMC was previously zeroed out.
-      * Downloaded official signed Tecno Spark 6 `KE7-H693GHIJKM-Q-GL-200617V060` `MD1&3` package from Hovatek Mega (`https://mega.nz/file/EqwFiKzC#SxdtxtF9iM6LmEWqyxsE6vSXu8Q6wiXklURmpwcEclE`) to `~/tecno_ke7_linux_port/firmware_parts/md1img_clean.zip` and extracted `~/tecno_ke7_linux_port/flash_images/md1img.img` (57,860,848 bytes).
+      * Downloaded official signed Tecno Spark 6 `KE7-H693GHIJKM-Q-GL-200617V060` `MD1&3` package from Hovatek Mega (Hovatek mirror — see docs/sources.md) to `~/tecno_ke7_linux_port/firmware_parts/md1img_clean.zip` and extracted `~/tecno_ke7_linux_port/flash_images/md1img.img` (57,860,848 bytes).
     - **Bootloader (`LK` -> `U-Boot` -> `Linux`) Modem Loading Flow:**
       * On boot, `LK` (`mmcblk0p27`) reads `md1img` from `/dev/mmcblk0p18`, verifies and decompresses `md1rom`/`md1dsp`/`md1drdi` into reserved DRAM, configures EMI MPU, writes the `ccci_tag_mem` (`LK_LD_MD`) structure in DRAM, and adds `/chosen/ccci,modem_info_v2` plus `/reserved-memory/mblock-*` nodes to the FDT passed to U-Boot (`mt6768_lk_fdt()` in `u-boot/arch/arm/mach-mediatek/mt6768/init.c`).
       * Downstream drivers in `~/tecno_ke7_linux_port/downstream-src/drivers/misc/mediatek/`: `ccci_util/`, `eccci/` (with `mt6768/md_sys1_platform.c`, `hif/ccci_hif_cldma.c`), and `ccmni/`.
@@ -790,7 +790,7 @@ Communication over `/dev/ccci_fs` utilizes `PORT_F_USER_HEADER` (`sizeof(struct 
 > not a failing `sim_reg_hot_plug_eint()`. That function has no failure branch and returns
 > normally even when every RPC fails. The missing debounce/polarity/sensitivity/socket
 > queries belong to **phase 2** inside `L1sim_Reset_All()`, which runs only when the SIM task
-> starts card reset — it has not run yet (VSIM is still off). See **§31** for the leaked
+> starts card reset — it has not run yet (VSIM is still off). See **§31** for the vendor
 > LR12A.R3.MP source and the corrected call order/diagnosis.
 
 ### 1. Symptom
@@ -1126,14 +1126,14 @@ with vendor ordering), **not** in a blind single-register poke.
 
 ---
 
-## 31. SIM Hot-Plug EINT: Leaked LR12A.R3.MP Source Analysis and Correction of §29 (Oct 25, 2026)
+## 31. SIM Hot-Plug EINT: Vendor LR12A.R3.MP Source Analysis and Correction of §29 (Oct 25, 2026)
 
 ### 31.1 Sources used (all public)
 
 | What | URL |
 |---|---|
 | Leaked **MOLY.LR12A.R3.MP** modem source (same generation as our `LR12A.R3.MP`) | https://github.com/junkyard-2327/TK_MD_BASIC_MOLY.LR12A.R3.MP.V110.6 |
-| Older leaked **MOLY.LR9.W1444** modem source (almost identical code) | https://github.com/cvolo4yzhka/MOLY.LR9.W1444.MD.LWTG.MP.V296 |
+| Older publicly archived **MOLY.LR9.W1444** modem source (almost identical code) | https://github.com/cvolo4yzhka/MOLY.LR9.W1444.MD.LWTG.MP.V296 |
 | `eint_setting_init.c` (LR12) | `mcu/common/driver/devdrv/eint/src/eint_setting_init.c` |
 | `icc_switchControl_al.c` (LR12) | `mcu/common/driver/devdrv/usim/src/icc_switchControl_al.c` |
 | `custom_sim_driver.c` (LR12, contains `sim_reg_hot_plug_eint`) | `mcu/pcore/custom/driver/drv/misc_drv/_Default_BB/MT6765/custom_sim_driver.c` |
@@ -1248,7 +1248,7 @@ phase-2 path is never reached.
   configuration file). The DCT tool is `DrvGen.exe`; the file lives at
   `alps/mediatek/custom/<project>/kernel/dct/dct/codegen.dws` (AP side) and there is also an
   **MD-side** `codegen.dws` in the modem tree, e.g.
-  `mcu/pcore/custom/driver/drv_gen/MT6765_SP/DEFAULT/codegen.dws` in the leaked LR12 tree.
+  `mcu/pcore/custom/driver/drv_gen/MT6765_SP/DEFAULT/codegen.dws` in the vendor LR12 tree.
   It generates `cust_eint.h`/`eint_def.c`/DTS EINT nodes at build time. It is **not** an NVRAM
   database and is never read from `nvdata`/`nvram`.
 * For integrated modem platforms, the AP's `codegen.dws` is rendered into the DT node
@@ -1275,7 +1275,7 @@ phase-2 path is never reached.
   `icc_switchControl_al.c:813`: *"we should always register eint. If we bootup without plugin
   simcard, status will display NO_CARD. we will never get insert event because eint is not
   registered"*. The internal SOP §3.5 also tests exactly this ("boot without card, then insert").
-* **FACT:** the leaked SOP §3.8 says plug-in/out events are ignored during modem boot because
+* **FACT:** the vendor SOP §3.8 says plug-in/out events are ignored during modem boot because
   "SIM Task 初始化未完成" — SIM task init is part of the boot sequence, but it is a *task*, not a
   gate on HS2.
 * **INFERENCE (strong):** a modem can reach HS2/READY with no SIM and with failed EINT

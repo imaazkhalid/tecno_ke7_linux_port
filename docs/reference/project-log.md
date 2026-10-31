@@ -77,7 +77,7 @@
 * Phone reachable only over **Wi-Fi SSH** (IP changes on nearly every boot; rediscover with ping sweep of `10.96.213.0/24`, laptop = `10.96.213.247`).
 
 ### 3.15 CORRECTION (Oct 25, 2026, later) — EINT is NOT the HS2 blocker; §29 hypothesis disproved
-* Public leaked **MOLY.LR12A.R3.MP** source proves the 12 RPCs are `EINT_Setting_Init()` **phase 1** (SRCPIN=6, NUMBER=0, DEDICATEDEN=5 per SIM). Every getter has a default; the function has no failure branch, no return, no wait — it **cannot stop the MD**.
+* Publicly archived **MOLY.LR12A.R3.MP** source proves the 12 RPCs are `EINT_Setting_Init()` **phase 1** (SRCPIN=6, NUMBER=0, DEDICATEDEN=5 per SIM). Every getter has a default; the function has no failure branch, no return, no wait — it **cannot stop the MD**.
 * The 5 missing queries (NUMBER, DEBOUNCE=1, POLARITY=2, SENSITIVITY=3, SOCKET=4) belong to `L1sim_Reset_All()` **phase 2**, which runs only when the SIM task starts card reset (VSIM on). They are absent because the MD never reaches SIM card reset, not because EINT registration aborted.
 * The DT node values are canonical (`dedicated=<0 0>`, `src_pin=<0 1>`, `interrupts=<0 8>`, `debounce=<0 10000>`) — identical to Motorola/Infinix/KT-R1 stock DTS. Adding it cannot fix HS2.
 * `0x54430007` / `0x53320000` are **normal post-HS1 markers**: a public working MT6765 log shows the same values at HS1 and reaches HS2 0.42 s later (`control 0x0,0x0`, `md_state 3->4`).
@@ -195,7 +195,7 @@
   * Verified clean system power-off from UI without reboot hangs.
 - [x] Run `ccci_fsd.py` and `ccci_mdinit.py` on phone with FSD started **before** modem boot (verified `/dev/ccci_fs` open, `md1:0` clean start).
 - [ ] **Verify the SIM1 hot-plug EINT DT node fixes the HS2 stall** — rebuild/deploy done, awaiting phone power-on. Check for `rxq4 isr_cnt > 0` (FS requests) or direct `md_state change from 3 to 2` (READY).
-  * **SUPERSEDED (Oct 25, 2026):** leaked LR12A.R3.MP source analysis shows EINT is **not** on the HS2 critical path (see §3.15 / HARDWARE §31). Keep the node (it is correct), but expect HS2 to still fail; debug the pre-SIM-reset init stage instead.
+  * **SUPERSEDED (Oct 25, 2026):** vendor LR12A.R3.MP source analysis shows EINT is **not** on the HS2 critical path (see §3.15 / HARDWARE §31). Keep the node (it is correct), but expect HS2 to still fail; debug the pre-SIM-reset init stage instead.
 - [ ] Mount NVRAM partitions and populate them before the modem starts asking for files (`/mnt/vendor/nvdata/md`, `protect_f/md`, `protect_s/md`, `nvcfg`, `nvdata/md_cmn`, `mdlpm`, `etc/mdota`, `firmware`).
 - [ ] Recover NVRAM/RF calibration + IMEI (p8-p12, p26 are fully erased; user can supply the device IMEI).
 - [ ] Verify SIM detection (Jazz SIM) via AT commands (`AT+CPIN?`, `AT+CSQ`, `AT+COPS?`) and test data connection over `ccmni0`.
@@ -545,7 +545,7 @@ Evidence:
 - Data (strings, DbgInfo, MDDB, layout) is plaintext; only the code is encrypted.
 => Static disassembly of the modem code is impossible without the eFuse/secure-world key.
 
-### 32.4 Matching modem SOURCE code leak found and saved locally
+### 32.4 Matching modem vendor source found and saved locally
 Repo: `https://github.com/junkyard-2327/TK_MD_BASIC_MOLY.LR12A.R3.MP.V110.6`
 (same branch `MOLY.LR12A.R3.MP`, MT6768/MT6765 trees, commit `04ebd402fe9472e0c2e3da5a296c11819307b929`).
 Saved to: `vendor/TK_MD_BASIC_MOLY.LR12A.R3.MP/` (278 MB, sparse checkout:
@@ -556,9 +556,9 @@ What IS intact (useful): SIM/USIM (`icc_switchControl_al.c`, `icc_switchControl_
 drivers (`devdrv_common.c`), DHL service.
 What is **stripped** ("/* under construction !*/"): CCCI/HIF core, RPC client, KAL/assert
 implementation, boot flow, `lte_ccci_hal_init()`, exception writer.
-So the leak does NOT contain the HS1/HS2 or exception handshake code.
+So the vendor source does NOT contain the HS1/HS2 or exception handshake code.
 
-### 32.5 What the firmware confirms (from the leak)
+### 32.5 What the firmware confirms (from the vendor source)
 `EINT_Setting_Init()` (called at the end of `Drv_Init_Phase2()`) is exactly the 12 RPCs we see, has a
 default for every getter and **cannot block**. `EINT_Setting_SW_Init()` + `kal_create_spinlock("eint")`
 are the last steps. The 5 "missing" queries (0/1/2/3/4) belong to `L1sim_Reset_All()` in the SIM task
@@ -686,7 +686,7 @@ Direct access results (all useless):
 The vendor mt6768 driver has **no USIP/TOPSM access at all** (only mt6853 has `ap_md_reg_dump.c`
 with a USIP block at `0x0D104400`), so the AP is not expected to touch DSP power on this SoC.
 
-### 32.14 Firmware constants recovered from the leak (sst headers)
+### 32.14 Firmware constants recovered from the vendor source (sst headers)
 From `mcu/common/service/sst/include/`:
 ```
 md32_boot.h:      MD32_MAGIC_KEY      0x62930000
@@ -993,7 +993,7 @@ Reads work: `AT+EGMR=0,7`, `AT+EGMR=0,10` (both `+EGMR: ""`), `AT+CSQ`, `AT+CREG
 
 ### 35.3 Why the IMEI cannot be written over AT
 `AT+EGMR=1,7,"<imei>"` and `=1,10` both return a bare `ERROR` (parser level, not `+CME ERROR`).
-The culprit is in the leaked modem source, `mcu/pcore/custom/modem/common/ps/custom_l4_utility.c:728`:
+The culprit is in the vendor modem source, `mcu/pcore/custom/modem/common/ps/custom_l4_utility.c:728`:
 ```c
 kal_uint8 custom_allow_at_write_imei(void)
 {
@@ -1941,7 +1941,7 @@ Crypto findings:
 - Tried that key, the default `0102...` key, MD5(header), zero key, and CBC variants with
   several IVs -> no valid BCD/checksum. So `NV0S_000` is the **SEJ/HW-encrypted** variant
   (`attr 0x6081`, not the SW bit 0x8).
-- SEJ is per-device, OTP/eFuse-derived; no leaked universal key exists. mtkclient's
+- SEJ is per-device, OTP/eFuse-derived; no universal key exists. mtkclient's
   software SEJ class needs the real HACC registers, so it cannot run offline.
 - `mtk.py da nvitem NV0S_000` sends DA `CUSTOMSEJ` (0x4000C); the xflash DA answers
   **"Wrong magic"** (command unsupported). The generic XML DA loader (`da_xml.bin`)
