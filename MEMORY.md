@@ -52,6 +52,37 @@ preloader (eMMC boot0) → LK (p27/p28) → U-Boot (p30) → systemd-boot (p40 E
   decompresses to 700,576 B). Its env `bootcmd` loads `mmc 0:28`, which is **stale**
   (ESP is p40 in the current GPT).
 
+### 3.1 The boot set is ATOMIC — never flash it partially
+
+The Linux boot set is **six partitions that only work together**:
+
+| # | Partition | Image | Must match |
+|---|---|---|---|
+| 1 | `lk` (p27) | `arch_state/mmcblk0p27.bin` | port-era `732445a1…` |
+| 2 | `lk2` (p28) | `arch_state/mmcblk0p28.bin` | port-era |
+| 3 | `boot` (p30) | `arch_state/mmcblk0p30.bin` | known-good U-Boot |
+| 4 | `vbmeta` (p34) | `arch_state/mmcblk0p34.bin` | `Algorithm NONE, Flags 3` |
+| 5 | `vbmeta_system` (p35) | `arch_state/mmcblk0p35.bin` | `Algorithm NONE, Flags 3` |
+| 6 | `vbmeta_vendor` (p36) | `arch_state/mmcblk0p36.bin` | `Algorithm NONE, Flags 3` |
+
+- **Flashing any subset = reset loop.** LK validates `boot` against `vbmeta`; a port-era
+  LK/U-Boot with stock AVB vbmeta loops in preloader (`0e8d:2000`, ~2 s, repeat, black
+  screen — looks dead but is alive).
+- **The inverse is also true:** restoring Android must write its own
+  `boot`+`recovery`+`vbmeta`+`vbmeta_system`+`vbmeta_vendor`+`misc` together, which
+  *destroys the Linux boot set*. Keep a separate copy of the six port partitions so a
+  round-trip never requires guessing.
+- **Cross-switching is a 6-partition write, both directions.** Treat "boot Android" and
+  "boot Linux" as two atomic bundles, never as individual partitions.
+- **Symptom → cause table:**
+
+| Symptom | Cause |
+|---|---|
+| black screen, `0e8d:2000` every ~2 s | vbmeta/LK mismatch (AVB reject) |
+| orange/logo loop | LK rejected `boot` image itself |
+| `0e8d:0003` stays | BROM, waiting for DA — safe to flash |
+| nothing on USB at all | phone off / flat battery / bad cable |
+
 ## 4. Recovery / flashing rules
 
 - **Before any write:** `./tools/save-state.sh <label>`.
@@ -59,10 +90,17 @@ preloader (eMMC boot0) → LK (p27/p28) → U-Boot (p30) → systemd-boot (p40 E
 - **`adb reboot` lands in BROM on this device** — a pre-armed mtkclient session catches it.
 - **Exactly one USB poller allowed.** `fastboot devices`/a second watcher during a DA
   upload produces `Wrong magic` + disconnect.
-- Restore stock/rooted Android (BROM, single session):
+- Restore stock/rooted Android (BROM, single session) — **this wipes the Linux boot set**:
   ```
   ./mtk-venv/bin/python mtkclient/mtk.py multi \
     "w boot <backup>/boot.img;w recovery <backup>/recovery.img;w vbmeta <backup>/vbmeta.img;w misc /tmp/zero_misc.bin;reset"
+  ```
+- Switch **back to Linux** afterwards (one session, all six):
+  ```
+  B=backup/arch_state_20261025
+  ./mtk-venv/bin/python mtkclient/mtk.py multi \
+    "w lk $B/mmcblk0p27.bin;w lk2 $B/mmcblk0p28.bin;w boot $B/mmcblk0p30.bin;\
+w vbmeta $B/mmcblk0p34.bin;w vbmeta_system $B/mmcblk0p35.bin;w vbmeta_vendor $B/mmcblk0p36.bin;reset"
   ```
 - Partition map: p27 lk, p28 lk2, p30 boot, p40 esp, p43 rootfs(/data now).
 
