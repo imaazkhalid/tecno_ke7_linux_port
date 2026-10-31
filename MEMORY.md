@@ -8,7 +8,7 @@ One-page operational memory. Detailed narrative lives in `docs/`; this file is t
 An uncommitted note is lost work. Permanent facts (tool paths, partitions, USB IDs,
 hard rules) belong in `/home/mk/AGENTS.md` §3 instead, which is loaded every session.
 
-**Last updated:** 2026-10-31 18:10 — Android restored and verified rooted; Linux blocked at LK DTB assert.
+**Last updated:** 2026-10-31 19:41 — Android restored and verified rooted; Linux port parked (see box below).
 
 
 > **DIRECTION CHANGE (2026-10-31 19:40):** the Linux port is **parked, not abandoned**.
@@ -32,7 +32,9 @@ hard rules) belong in `/home/mk/AGENTS.md` §3 instead, which is loaded every se
 | SD rootfs | PARTUUID `30d61490-6ca8-4f0c-9016-c5259867fcb3` |
 | Internal ESP | p40 intact: kernel, initramfs, DTBs, systemd-boot |
 | Internal rootfs | p43 is now Android `/data` — old Arch rootfs there is gone |
-| LK | **stock retail `f977f6ef…`** (restored 17:55) — Android boot set |
+| LK | **stock retail 2022 `f977f6ef…`** (restored 19:40) — Android boot set |
+| dtbo | **Android** `68023` (`backup/dtbo_android_20261031.bin`) — saved 19:03 |
+| Android check | 19:40:21 adb OK — build `KE7-H693HJKM-Q-GL-220729V478`, `orange`, `su`→`uid=0` (Magisk), `/data` 11 GB used |
 | boot | **Android kernel** (known-good-rooted) — Linux U-Boot not flashed |
 | vbmeta | **stock AVB** `SHA256_RSA2048, Flags 0` — verification enabled again |
 | adb | `./platform-tools/adb` (in-repo; `/tmp/opencode/platform-tools` is lost on reboot) |
