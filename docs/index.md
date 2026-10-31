@@ -1,5 +1,7 @@
 # Documentation map
 
+> **State first:** [`../MEMORY.md`](../MEMORY.md) — one-page current state, backup inventory, boot-chain facts, next steps.
+
 Start with the [README](../README.md) for the one-page overview. This page is the
 map of everything else.
 

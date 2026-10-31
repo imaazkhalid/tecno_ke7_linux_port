@@ -1,5 +1,7 @@
 # Tecno Spark 6 (KE7) — Mainline Linux Port
 
+> **Operators: read [`MEMORY.md`](MEMORY.md) first** — current state, backups, boot-chain facts.
+
 > Turning a bricked 2020 budget MediaTek phone into a fully documented, pocket-sized
 > Arch Linux ARM computer — and writing down every dead end along the way.
 
