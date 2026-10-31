@@ -19,7 +19,11 @@ Update it at the end of every session.
 | SD rootfs | PARTUUID `30d61490-6ca8-4f0c-9016-c5259867fcb3` |
 | Internal ESP | p40 intact: kernel, initramfs, DTBs, systemd-boot |
 | Internal rootfs | p43 is now Android `/data` — old Arch rootfs there is gone |
-| LK | **current hash `b5e46508…`** (unknown build) |
+| LK | **stock retail `f977f6ef…`** (restored 17:55) — Android boot set |
+| boot | **Android kernel** (known-good-rooted) — Linux U-Boot not flashed |
+| vbmeta | **stock AVB** `SHA256_RSA2048, Flags 0` — verification enabled again |
+| adb | `./platform-tools/adb` (in-repo; `/tmp/opencode/platform-tools` is lost on reboot) |
+| Linux status | **does not boot** — blocked at LK `fdt_op.c:855` DTB assert, see §3.5 |
 
 ## 2. Backups (all on the laptop, verified)
 
@@ -147,6 +151,32 @@ Three different U-Boot payloads exist in the repo root, all packaged as 32 MiB
 
 The stale `mmc 0:28` was never going to boot the current layout: p28 has no filesystem,
 so `load` fails and the board resets in a ~25 s loop with a black screen.
+
+### 3.5 Why Linux does not boot (as of 2026-10-31 18:00)
+
+Both the port-era U-Boot and `u-boot-boot.img` produce, in LK's own log:
+
+```
+[2076] main dtb is not packed with valid fdt format!
+[2076] panic: ASSERT at (app/mt_boot/fdt_op.c:855): main_dtb_addr
+[12000] lk_wdt_dump -> LEDS off -> reset
+```
+
+LK: reads the 32 MB `boot` partition, reserves DTB @ `0x4bc80000` (512 KB),
+kernel @ `0x40080000`, ramdisk @ `0x47c80000`, then fails the main-DTB check and
+hangs in panic until its watchdog resets the phone (~12 s; ~25 s per full cycle).
+
+Facts established:
+- The `dtb` field of every image (ours **and** retail stock) is a 64-byte DTBO
+  table (`d7b7ab1e`) with the FDT at +0x40 — not a raw FDT.
+- U-Boot payloads **do** end with their own control DTB (`totalsize≈12104`,
+  ending exactly at the payload end).
+- Setting `dtb_size=0` at header offset 1648 (3 bytes) to force the
+  "DTB packed with kernel" path was flashed but **never actually tested** —
+  the phone never booted because mtkclient was hijacking every boot (§4 rule).
+
+**Next time:** kill every mtkclient, power-cycle, wait 90 s untouched, *then* dump
+`expdb` and check whether the newest LK session still hits fdt_op.c:855.
 
 ## 4. Recovery / flashing rules
 
