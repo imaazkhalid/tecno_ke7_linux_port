@@ -90,9 +90,15 @@ from the vendor boot log. Full camera i2c map is in
 ### 2.4 Sensor i2c addresses
 
 MXC6655 (accel), STK33562 (ALS/PS), MMC5603 (mag) sit behind the **SCP**.
-**Method:** disassemble `scp.img` (ARM Thumb-2) around the driver strings; the i2c
-client addresses are passed to `i2c_master_send`-style helpers as immediates.
-Alternative: halt the SCP and scan i2c-0..8 with a scope-free bus scan (risky).
+**Status:** blocked on SCP firmware analysis. The AP has **no `/dev/i2c-*`**
+(`CONFIG_I2C_CHARDEV` is off), and no sensor debugfs exists, so userspace scanning
+is not possible on the stock build.
+
+**Method:** disassemble `scp.img` (ARM Thumb-2) around the driver entry points
+(`mxc6655`, `stk33562` strings are log text; the config tables are elsewhere) and
+find the `i2c_master_*` calls whose address immediate is the chip address. A second
+option is a small debug module built against the vendor kernel to read the SCP's
+i2c client list.
 
 ### 2.5 Wi-Fi / Bluetooth (MT6631)
 
