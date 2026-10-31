@@ -22,7 +22,9 @@ live DT. See [`hardware-matrix.md`](hardware-matrix.md) and
 - burst clock `mm_dsi0` = **228.5 MHz**, 4 lanes, 720×1640.
 - LK contains the panel name at offset **`0x8cd55`**.
 - We found the LK **panel-name comparison chain**: it compares the DT `lcmname`
-  against a list and returns an index — our panel is **index 6**. That chain is the
+  against a list and returns an index — our panel is **index 8**, loaded from the
+driver pointer table at `0xffffff8008f7a6c0` (zero in the image: the table is
+  populated at runtime by KASLR relocation). That chain is the
   key to the driver table: the caller indexes a `LCM_DRIVER[]` array of structs
   containing `{name, set_util_funcs, init, get_params, ...}`.
 

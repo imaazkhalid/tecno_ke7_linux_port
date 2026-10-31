@@ -30,7 +30,7 @@ retail ROM (`KE7-H693HJKM-Q-GL-220729V478`) unless marked *unknown*.
 | Reset | **GPIO 45** |
 | Bias | **ENP GPIO 153 / ENN GPIO 152** |
 | Backlight | **OCP2130** i2c LED driver (`led_mode = 5`), 0–255; PWM fallback `1100e000.disp_pwm` |
-| Current state | ✅ SimpleFB (bootloader framebuffer); LK compare chain puts this panel at **index 6** |
+| Current state | ✅ SimpleFB (bootloader framebuffer); kernel compare chain puts this panel at **index 8** |
 
 **Missing:** the porch/pixel-clock set (`HSA/HBP/HFP/VSA/VBP/VFP`). It is **not**
 in the DTS or the dtbo — it lives in the stock LK panel driver. Options: disassemble
