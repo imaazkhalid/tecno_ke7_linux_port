@@ -125,8 +125,8 @@ driver. i2c addresses must be recovered from the SCP firmware.
 |---|---|
 | Node | `nfc@08` on **i2c-3**, `mediatek,nfc` |
 | Pins | reset GPIO 159, IRQ GPIO 9 |
-| Chip | ❓ likely NXP PN5xx (NCI) — confirm from the HAL |
-| State | ⬜ optional |
+| Chip | **not fitted on this unit** — no NFC feature, no NFC libs, no `dumpsys nfc` service |
+| State | ✅ nothing to support (DT node is a leftover) |
 
 ## Modem
 
