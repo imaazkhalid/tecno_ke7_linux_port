@@ -19,6 +19,7 @@ for i in $(seq 1 1800); do
     case "$v:$p" in
       1d6b:0104) ids="linux-gadget" ;;
       18d1:*)    ids="android-adb" ;;
+      0e8d:201c) ids="android-adb" ;;
       0e8d:2000) ids="mtk-preloader" ;;
       0e8d:0003) ids="mtk-brom" ;;
     esac
