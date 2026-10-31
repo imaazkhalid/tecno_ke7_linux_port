@@ -21,12 +21,12 @@ journalctl -k -f -o short-iso 2>/dev/null | grep --line-buffered -iE \
     echo "$ts  $msg" | tee -a "$LOG"
     case "$msg" in
       *"New USB device found"*idVendor=0e8d*idProduct=0003*)
-        notify-send -u critical -t 0 -a "KE7 USB" "BROM VISIBLE (0e8d:0003)" "Phone is in BROM now." ;;
+        notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 USB" "BROM VISIBLE (0e8d:0003)" "Phone is in BROM now." ;;
       *"New USB device found"*idVendor=0e8d*)
-        notify-send -u normal -t 4000 -a "KE7 USB" "Phone enumerated" "0e8d preloader, not BROM." ;;
+        notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 USB" "Phone enumerated" "0e8d preloader, not BROM." ;;
       *"New USB device found"*)
-        notify-send -u low -t 3000 -a "KE7 USB" "USB device enumerated" "$msg" ;;
+        notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 USB" "USB device enumerated" "$msg" ;;
       *"unable to enumerate"*)
-        notify-send -u normal -t 4000 -a "KE7 USB" "Enumeration FAILED" "Port gave up again (error -71)." ;;
+        notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 USB" "Enumeration FAILED" "Port gave up again (error -71)." ;;
     esac
   done

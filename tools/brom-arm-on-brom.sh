@@ -35,7 +35,7 @@ for tick in $(seq 1 5400); do   # 5400 * 0.2s = 18 min
   found_any=1
   say "DETECTED  0e8d:0003 BROM at $hit -- launching mtkclient now"
   printf 'CAPTURED brom %s\n' "$(date +%H:%M:%S)" > "$STATUS"
-  notify-send -u critical -t 0 -a "KE7 BROM" "BROM DETECTED" "Starting vbmeta write now."
+  notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 BROM" "BROM DETECTED" "Starting vbmeta write now."
 
   : > /tmp/opencode/brom_attempt.log
   "$PY" -u "$MTK" multi "\
@@ -48,11 +48,11 @@ reset" 2>&1 | tee /tmp/opencode/brom_attempt.log | tee -a "$LOG"
   if [ "$wrote" -ge 3 ]; then
     say "SUCCESS  $wrote/3 written, reset sent"
     printf 'SUCCESS %s %s/3\n' "$(date +%H:%M:%S)" "$wrote" > "$STATUS"
-    notify-send -u critical -t 0 -a "KE7 BROM" "SUCCESS - all 3 written" "Unplug and replug to boot Linux."
+    notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 BROM" "SUCCESS - all 3 written" "Unplug and replug to boot Linux."
     exit 0
   fi
   say "RETRY  captured but only $wrote/3 written -- returning to wait"
-  notify-send -u normal -t 4000 -a "KE7 BROM" "Write incomplete" "$wrote/3 partitions"
+  notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 BROM" "Write incomplete" "$wrote/3 partitions"
   sleep 1
 done
 

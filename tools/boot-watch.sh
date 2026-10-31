@@ -29,10 +29,10 @@ for i in $(seq 1 1800); do
     if [ "$ids" != "${last:-}" ]; then
       say "DEVICE  $ids"
       case "$ids" in
-        linux-gadget) notify-send -u critical -t 0 -a "KE7 BOOT" "LINUX GADGET UP" "1d6b:0104 enumerated." ;;
-        android-adb)  notify-send -u normal -t 5000 -a "KE7 BOOT" "Android booted" "adb device present." ;;
-        mtk-brom)     notify-send -u normal -t 5000 -a "KE7 BOOT" "BROM again" "Phone did not boot." ;;
-        mtk-preloader) notify-send -u normal -t 5000 -a "KE7 BOOT" "Preloader again" "Phone did not boot." ;;
+        linux-gadget) notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 BOOT" "LINUX GADGET UP" "1d6b:0104 enumerated." ;;
+        android-adb)  notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 BOOT" "Android booted" "adb device present." ;;
+        mtk-brom)     notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 BOOT" "BROM again" "Phone did not boot." ;;
+        mtk-preloader) notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 BOOT" "Preloader again" "Phone did not boot." ;;
       esac
       last="$ids"
     fi
@@ -41,7 +41,7 @@ for i in $(seq 1 1800); do
   if ping -c1 -W1 172.16.42.2 >/dev/null 2>&1; then
     if [ "${net:-}" != "up" ]; then
       say "NETWORK  172.16.42.2 answering"
-      notify-send -u critical -t 0 -a "KE7 BOOT" "LINUX IS UP" "172.16.42.2 answers. ssh root@172.16.42.2"
+      notify-send -u normal -t 5000 -h int:transient:1 -a "KE7 BOOT" "LINUX IS UP" "172.16.42.2 answers. ssh root@172.16.42.2"
       net=up
     fi
   elif [ "${net:-}" = "up" ]; then
