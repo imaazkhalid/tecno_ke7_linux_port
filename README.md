@@ -129,6 +129,7 @@ docs/                 curated documentation (start here)
   ├── firmware.md     exact build id, image manifest + SHA-256 verifier
   ├── sources.md      where to obtain firmware, tools and vendor source
   ├── hardware.md     board map, GPIO/I2C/IRQ reference
+  ├── hardware-matrix.md  per-component driver matrix (chips, buses, gaps)
   ├── boot-chain.md   BROM → LK → U-Boot → Linux
   ├── linux-bringup.md kernel, DT, display, touch, USB, power
   ├── modem.md        CCCI/CLDMA port and the EINT fix

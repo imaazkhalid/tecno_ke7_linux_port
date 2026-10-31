@@ -9,6 +9,7 @@ map of everything else.
 |---|---|---|
 | 1 | [overview.md](overview.md) | Goals, constraints, what works and what doesn't, roadmap |
 | 2 | [hardware.md](hardware.md) | Board map: SoC blocks, GPIOs, I2C/SPI, IRQs, power rails |
+| 2b | [hardware-matrix.md](hardware-matrix.md) | **Per-component driver matrix** — chips, buses, firmware, gaps |
 | 3 | [boot-chain.md](boot-chain.md) | BROM → preloader → LK → U-Boot → systemd-boot → Linux |
 | 4 | [linux-bringup.md](linux-bringup.md) | Kernel/DT work, display, touch, USB gadget, charging, Phosh |
 | 5 | [modem.md](modem.md) | MT6768 CCCI/CLDMA on mainline, the EINT clock bug |

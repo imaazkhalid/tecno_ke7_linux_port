@@ -1,3 +1,5 @@
+> **See also:** [hardware-matrix.md](hardware-matrix.md) — the consolidated, component-by-component driver status table (newer than this page).
+
 # KE7 mainline port — subsystem plan (from Android evidence)
 
 Derived from `hardware-dump/`. Everything marked **known** was read out of the
