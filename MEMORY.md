@@ -2,9 +2,13 @@
 
 One-page operational memory. Detailed narrative lives in `docs/`; this file is the
 "where are we, what boots, where are the backups, what to do next" sheet.
-Update it at the end of every session.
 
-**Last updated:** 2026-10-31 (evening)
+**Update after every meaningful step, then commit immediately** —
+`git add MEMORY.md && git commit -m "<what changed and why>"`.
+An uncommitted note is lost work. Permanent facts (tool paths, partitions, USB IDs,
+hard rules) belong in `/home/mk/AGENTS.md` §3 instead, which is loaded every session.
+
+**Last updated:** 2026-10-31 18:10 — Android restored and verified rooted; Linux blocked at LK DTB assert.
 
 ---
 
