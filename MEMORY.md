@@ -268,3 +268,38 @@ w vbmeta $B/mmcblk0p34.bin;w vbmeta_system $B/mmcblk0p35.bin;w vbmeta_vendor $B/
 - `docs/dual-boot.md` — SD dual-boot findings (AVB, gzip, BROM)
 - `docs/hardware-matrix.md` — per-component driver status
 - `PROJECT_STATUS.md` → moved to `docs/reference/project-log.md`
+
+### 3.6 LK/U-Boot source findings (2026-10-31 19:40)
+
+Upstream MTK LK source: `github.com/svoboda18/lk`
+(`app/mt_boot/fdt_op.c`, `app/mt_boot/mt_boot.c`).
+
+- `fdt_op.c:855` is `PAL_ASSERT(main_dtb_addr)` inside `dtb_overlay()` — it fires
+  only when the main DTB pointer is NULL.
+- `bldr_load_dtb_from_boot()`: for `header_version >= 2` it requires
+  **`dtb_size != 0`**; if 0 it prints `can't find v2 dtb` and returns -1.
+  It accepts **either** a `DT_TABLE` (mkdtimg wrapper, `d7b7ab1e`) **or** a raw FDT
+  (`d00dfeed`) at the dtb offset.
+- `boot_linux_fdt()`: for 64-bit kernels LK **always** calls `decompress_kernel()`;
+  on failure it panics `decompress kernel image fail!!!`. So the kernel must stay
+  gzipped (an uncompressed Image will not work).
+- Handoff: `lk_jump64((u32)entry, (u32)tags, 0, KERNEL_64BITS)` → **x0 = DTB (tags
+  address, 0x4bc80000)**, x1 = 0, x2 = KERNEL_64BITS.
+- Our LK log prints `kernel real kernel_sz=0x0004fcb8` and never
+  `decompress kernel image fail` → **LK decompressed U-Boot successfully and
+  entered `load_images()` (modem)**. LK is no longer the blocker.
+
+U-Boot side (`u-boot/` in repo):
+- `CONFIG_TEXT_BASE = 0x40080000` (matches `kernel_addr`).
+- `chosen/stdout-path = "/framebuffer"` → U-Boot console is the framebuffer at
+  `0x7e9f0000`, **not** the UART.
+- `CONFIG_DEBUG_UART=y`, base `0x11002000`, baud `921600` — a TTL adapter on the
+  phone's UART test points would show U-Boot's output verbatim.
+- `CONFIG_SAVE_PREV_BL_FDT_ADDR=y` (needed for `get_prev_bl_fdt_addr()`).
+- `# CONFIG_SKIP_LOWLEVEL_INIT is not set` — U-Boot runs its own low-level init.
+- KE7 code in `arch/arm/mach-mediatek/mt6768/init.c` prints `[UBOOT] board_late_init
+  reached` and MD-clock traces via `mt6768_trace()`.
+
+**Status:** LK passes, decompresses U-Boot, jumps with x0=DTB — but U-Boot produces
+no visible output and never reaches `bootcmd` (debug image's watchdog-disable never
+runs, loop continues). Blocker is now inside U-Boot's early init.
