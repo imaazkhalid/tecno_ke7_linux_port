@@ -155,6 +155,12 @@ so `load` fails and the board resets in a ~25 s loop with a black screen.
 - **`adb reboot` lands in BROM on this device** — a pre-armed mtkclient session catches it.
 - **Exactly one USB poller allowed.** `fastboot devices`/a second watcher during a DA
   upload produces `Wrong magic` + disconnect.
+- **Never leave mtkclient running while testing a boot.** mtkclient grabs the preloader
+  the instant it appears and crashes it into BROM (`0e8d:2000` → `0e8d:0003` within ~1 s).
+  The phone then never runs LK, `expdb` never changes, and every "boot test" silently
+  becomes a BROM session. Symptom: two `expdb` dumps taken minutes apart are
+  **byte-identical**, and the phone sits at `0e8d:0003` afterwards. Kill every mtkclient,
+  power-cycle, wait ~90 s, *then* dump.
 - Restore stock/rooted Android (BROM, single session) — **this wipes the Linux boot set**:
   ```
   ./mtk-venv/bin/python mtkclient/mtk.py multi \
