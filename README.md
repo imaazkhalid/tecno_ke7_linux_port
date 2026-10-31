@@ -127,6 +127,7 @@ docs/                 curated documentation (start here)
   ├── overview.md     goals, constraints, results
   ├── reproduce.md    THE step-by-step guide (any device state)
   ├── firmware.md     exact build id, image manifest + SHA-256 verifier
+  ├── sources.md      where to obtain firmware, tools and vendor source
   ├── hardware.md     board map, GPIO/I2C/IRQ reference
   ├── boot-chain.md   BROM → LK → U-Boot → Linux
   ├── linux-bringup.md kernel, DT, display, touch, USB, power
@@ -165,8 +166,8 @@ download is the right one.
 If your phone still boots Android and you only want the Linux install:
 
 ```bash
-git clone https://github.com/<you>/tecno-spark-6-linux
-cd tecno-spark-6-linux
+git clone https://github.com/imaazkhalid/tecno_ke7_linux_port
+cd tecno_ke7_linux_port
 # read docs/reproduce.md first — it lists the prerequisites and the risks
 ```
 
