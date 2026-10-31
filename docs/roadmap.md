@@ -52,31 +52,32 @@ driver pointer table at `0xffffff8008f7a6c0` (zero in the image: the table is
 `display-timings` until the panel locks at 60 Hz (or extract the exact porches
 from LK).
 
-### 2.2 Fingerprint (Sunwave)
+### 2.2 Fingerprint (Sunwave) — BLOCKED by TEE design
 
-**Known:** SPI0 CS0 @ 8 MHz, **SPI pins on GPIO6**, EINT **GPIO7**, `/dev/sunwave_fp`,
-TEE `/dev/teei_fp`, HAL `swfingerprint.default.so`, chips `ic_8202`/`ic_8231`.
-**Missing:** reset GPIO, protocol.
+**Known:** SPI0 CS0 @ 8 MHz (SPI pins GPIO6), EINT GPIO7, reset GPIO8 (hypothesis),
+`/dev/sunwave_fp`, `/dev/teei_fp`, HAL `swfingerprint.default.so`, chips SW8202/SW8231.
 
-**Method:**
-1. Reset GPIO: the ODM DT node is not in the main FDT or dtbo. Extract it from the
-   vendor boot image (the ODM DTB is built into the kernel image; search for the
-   `sunwave-fp` property block near its strings) or from the vendor
-   `spi-sunwave-fp` driver source. GPIO8 is the current hypothesis (unclaimed,
-   pull-up, adjacent to the EINT).
-2. Protocol: reverse `swfingerprint.default.so` — the SPI read/write wrappers and
-   the `ioctl` numbers are visible in strings/symbols; the image format is the
-   vendor's `Csunwave-image`.
-3. Driver: SPI driver exposing `/dev/sunwave_fp` with the same ioctl ABI, or better
-   a **libfprint** backend that talks SPI directly from userspace (no kernel ABI
-   needed) — recommended for upstream.
+**Why it is blocked:** the HAL never touches SPI. It builds a framed message
+(magic `0x100b`, 8-byte header with total/write/read lengths, then write payload,
+then a read buffer) and hands it to **`sf_trustlet_client_exchange_message()`**.
+The actual SPI transfer happens inside a signed Trustonic TEE trustlet in secure
+world. The kernel driver only exposes reset/power/clock/IRQ ioctls
+(`0x7302`, `0x7305/0x7306`, `0x7307/0x7308`, `0x7309`, `0x7320`, `0x7330`) — there is
+**no bulk-transfer ioctl** a mainline driver could use.
 
-**Progress:** DT fragment written —
-[`../dts/fingerprint-sunwave-sw8202.dtsi`](../dts/fingerprint-sunwave-sw8202.dtsi)
-(SPI0 CS0, 8 MHz, IRQ GPIO7, reset GPIO8 as hypothesis, disabled until confirmed).
+**Consequences:**
 
-**Deliverable:** enable the node, add the libfprint backend, and document the
-image format (`Csunwave-image`).
+| Option | Feasible? |
+|---|---|
+| libfprint over spidev | ❌ no SPI access, protocol unknown |
+| New kernel SPI driver | ❌ sensor command set is inside the trustlet |
+| Reuse vendor trustlet on mainline | ❌ Trustonic TEE not available upstream |
+| Reverse the trustlet binary | ❌ encrypted/signed, not in the filesystem |
+
+**Recommendation:** defer fingerprint. Revisit only if a Sunwave SW8202 datasheet
+or a non-TEE firmware variant appears. Document the node (already in
+`dts/fingerprint-sunwave-sw8202.dtsi`) so the hardware is described even while
+unsupported.
 
 ### 2.3 Main camera sensor — CLOSED
 
