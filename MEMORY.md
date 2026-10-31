@@ -314,3 +314,30 @@ U-Boot side (`u-boot/` in repo):
 **Status:** LK passes, decompresses U-Boot, jumps with x0=DTB — but U-Boot produces
 no visible output and never reaches `bootcmd` (debug image's watchdog-disable never
 runs, loop continues). Blocker is now inside U-Boot's early init.
+
+## 8. Android rendering bottleneck (measured 2026-10-31)
+
+Full write-up: `docs/android-rendering-bottleneck.md`.
+
+**Not CPU, not GPU, not memory.** All-CPU pinning and GPU pinning (verified
+823 MHz) changed jank by <2 %. `/proc/pressure/memory` is 0.00.
+
+The present path delivers an **effective 30 Hz**: `dumpsys SurfaceFlinger
+--latency StatusBar#0` shows intervals alternating 16.7 ms / 33.4 ms.
+`HWC missed frame count == total missed` (3993 vs 229 GPU). App-side draw is
+1.2 ms, sync 0.8 ms, but draw→swap is 22.8 ms.
+
+**For the Android 17 port:** fix the DSI/panel present path (video vs command
+mode, porches/pixel clock, TE/vsync source, appVsyncOffset/presentDeadline,
+CMDQ), then re-measure. Do not tune governors before the cadence is a clean
+16.7 ms.
+
+## 9. Backups — complete Android reference
+
+`backup/android-all-20261031-1945/` — **every readable partition** (47 files,
+1.8 GB) with `MANIFEST.sha256` and `README.md`: boot chain, calibration, NV,
+vendor, display, boot0/boot1, primary+backup GPT. `super`/`userdata` are in
+`backup/android-full-20261031-132104/` (unchanged since). Do not write `rpmb`.
+
+Method note: `adb exec-out` through `su` is **not** binary-safe (CR before LF);
+use `dd` on device + `adb pull`, then verify SHA-256 against the device.
