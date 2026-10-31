@@ -175,22 +175,33 @@ kernel @ `0x40080000`, ramdisk @ `0x47c80000`, then fails the main-DTB check and
 hangs in panic until its watchdog resets the phone (~12 s; ~25 s per full cycle).
 
 Facts established:
-- The `dtb` field of every image (ours **and** retail stock) is a 64-byte DTBO
-  table (`d7b7ab1e`) with the FDT at +0x40 — not a raw FDT.
-- U-Boot payloads **do** end with their own control DTB (`totalsize≈12104`,
-  ending exactly at the payload end). Stock Android kernels have **no** appended FDT.
+
+**2026-10-31 18:20-18:45 — two root causes found by reading LK's own expdb log:**
+
+1. **`dtbo` partition must match the LK build.** Android's restore left a `dtbo`
+   (total_size **68023**) that does not match the 2020 LK's built-in DTB. LK then hits
+   `ufdt_overlay_do_fixups(): Couldn't find 'flashlights_aw36515'` →
+   `ufdt_apply_overlay() failed!` → `panic at lk_builtin_dtb.c:175`.
+   Flashing the port-era `dtbo` (total_size **67007**, `arch_state/mmcblk0p31.bin`)
+   fixed it — LK now shows the logo and reaches the boot-image stage.
+   The Android dtbo is saved as `backup/dtbo_android_20261031.bin`.
+2. **The 2020 LK and the 2022 LK want *different* dtb encodings in the boot image:**
+   - 2022 LK (`86459a05b`, retail `lk.img` `f977f6ef`): rejects the boot image outright
+     (`main dtb is not packed with valid fdt format`, fdt_op.c:855, tick ~2076).
+   - 2020 LK (`3fac97d44`, `arch_state/mmcblk0p27.bin` = `732445a1`): gets past the
+     overlay, but prints `can't find v2 dtb` when the dtb field holds the **DTBO
+     wrapper** (`d7b7ab1e`) — **it requires a raw FDT (`d00dfeed`) there.**
+   → `flash_images/uboot_boot_rawfdt.img`: `dtb_size=119923`, raw FDT at `0x113000`,
+   kernel = U-Boot with its trailing control DTB **stripped** (326,840 B gz).
+- The `dtb` field of retail stock images is a 64-byte DTBO table (`d7b7ab1e`) with the
+  FDT at +0x40 — the 2022 LK accepts that, the 2020 LK does not.
+- U-Boot payloads end with their own control DTB (`totalsize≈12104`); stock kernels
+  have **no** appended FDT, and an appended one changes which path LK takes.
 - `flash_images/lk_patched.img` is **cosmetic only**: 100 bytes, exactly three UI
-  strings blanked (`0x67FD0` "Your device will boot in 5 seconds", `0x98878`
-  "Orange State", `0x98888` "Your device has been unlocked…"). Not a functional
-  patch; it cannot fix the DTB check. Do not waste a flash on it for this.
-- Setting `dtb_size=0` at header offset 1648 (3 bytes) to force the
-  "DTB packed with kernel" path was flashed but **never actually tested** —
-  the phone never booted because mtkclient was hijacking every boot (§4 rule).
-- Static disassembly of `mmcblk0p27.bin` did **not** resolve string addresses:
-  no `adrp` to the string pages, no 64-bit literal pointers. The file-offset → VA
-  mapping for this LK image is unknown. Header: magic `0x58881688`, size field
-  `0x0F6F8C`, preloader loads from partition+`0x200`, reported size `0xF1C70`.
-  Next attempt must parse the MTK header properly or use REA — not guess.
+  strings blanked (`0x67FD0`, `0x98878`, `0x98888`). Not a functional patch.
+- Static disassembly of `mmcblk0p27.bin` does **not** resolve string addresses
+  (mixed ARM32/AArch64, self-relocating). Don't retry objdump; the expdb log is the
+  reliable source of LK behaviour.
 
 **Next time:** kill every mtkclient, power-cycle, wait 90 s untouched, *then* dump
 `expdb` and check whether the newest LK session still hits fdt_op.c:855.
