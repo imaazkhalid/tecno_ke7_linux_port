@@ -136,6 +136,8 @@ docs/                 curated documentation (start here)
   ├── imei-restore.md NV format, META, TEE bypass, legality
   ├── android.md      stock ROM, root, debloat, dialer
   ├── tooling.md      mtkclient wrappers, META, VM automation
+  ├── roadmap.md      remaining gaps + exact extraction methods
+  ├── upstream-strategy.md  future-kernel maintenance plan
   ├── legal.md        ownership, IMEI law, firmware copyright
   └── reference/      raw research logs & inventories (deep detail)
 patches/              our kernel + U-Boot changes, apply-ready

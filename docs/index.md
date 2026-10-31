@@ -19,7 +19,9 @@ map of everything else.
 | 9 | [reproduce.md](reproduce.md) | **Step-by-step from any device state** |
 | 10 | [firmware.md](firmware.md) | exact build ID, manifest, SHA-256 verification |
 | 11 | [sources.md](sources.md) | where to obtain firmware, tools and vendor source |
-| 12 | [legal.md](legal.md) | Ownership, IMEI law, firmware copyright — read before flashing |
+| 12 | [roadmap.md](roadmap.md) | every remaining gap, with the exact method to close it |
+| 13 | [upstream-strategy.md](upstream-strategy.md) | how the port survives future kernels (6.19, 7.x, LTS) |
+| 14 | [legal.md](legal.md) | Ownership, IMEI law, firmware copyright — read before flashing |
 
 ## Deep reference (raw research)
 

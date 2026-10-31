@@ -30,7 +30,7 @@ retail ROM (`KE7-H693HJKM-Q-GL-220729V478`) unless marked *unknown*.
 | Reset | **GPIO 45** |
 | Bias | **ENP GPIO 153 / ENN GPIO 152** |
 | Backlight | **OCP2130** i2c LED driver (`led_mode = 5`), 0–255; PWM fallback `1100e000.disp_pwm` |
-| Current state | ✅ SimpleFB (bootloader framebuffer) |
+| Current state | ✅ SimpleFB (bootloader framebuffer); LK compare chain puts this panel at **index 6** |
 
 **Missing:** the porch/pixel-clock set (`HSA/HBP/HFP/VSA/VBP/VFP`). It is **not**
 in the DTS or the dtbo — it lives in the stock LK panel driver. Options: disassemble
@@ -51,10 +51,10 @@ in the DTS or the dtbo — it lives in the stock LK panel driver. Options: disas
 | Item | Value |
 |---|---|
 | Vendor / chip | **Sunwave** — HAL strings `ic_8202`, `ic_8231` (SW8202/SW8231 class) |
-| Bus | **SPI0 CS0** (`spi0.0`), **8 MHz** (`spi-max-frequency = 0x7a1200`) |
+| Bus | **SPI0 CS0** (`spi0.0`), **8 MHz** (`spi-max-frequency = 0x7a1200`); SPI pins on **GPIO6** (pinctrl) |
 | DT | `/odm/fingerprint`, driver compatible **`sunwave-fp`** (fallback `mediatek,mt6753-fingerprint`) |
 | IRQ | **EINT GPIO 7** (`gpio7_eint` pinctrl node) |
-| Reset | ❓ unknown — in the ODM DT fragment, not the main DT |
+| Reset | ❓ unknown — ODM DT fragment; **GPIO8 is the working hypothesis** (unclaimed, pull-up, next to EINT7) |
 | HAL | `vendor.sw.swfingerprint@1.0`, `swfingerprint.default.so`, `fpsensor_fingerprint.default.so` |
 | Char devices | `/dev/sunwave_fp`, `/dev/teei_fp` (Trustonic TEE) |
 | State | ⬜ not started |
