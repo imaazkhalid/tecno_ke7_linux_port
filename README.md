@@ -46,8 +46,10 @@ kept honest.
 | Wi-Fi / Bluetooth (MT6631 CONNSYS) | 🚧 in progress | vendor driver port underway; `wlan0` not yet stable |
 | Cellular modem (MT6768 CCCI) | 🚧 in progress | driver ported to 6.18; blocked on a gated MD EINT clock (fix built, not yet flashed) |
 | Audio (MT6358 + GPIO 39 amp) | ⬜ planned | amplifier GPIO already identified |
-| Camera (GC02M1 / OV02B10) | ⬜ planned | both sub-sensors have mainline drivers |
-| Sensors (via SCP) | ⬜ planned | chips live behind the closed SCP firmware |
+| Camera | ⬜ planned | main sensor identified: **Samsung S5K3P9SX** (16 MP); no mainline driver yet |
+| Sensors (via SCP) | ⬜ planned | MXC6655 accel, STK33562 ALS/PS, MMC5603 mag — behind SCP |
+| Fingerprint | 🚫 blocked | SPI runs inside a Trustonic TEE trustlet — no userspace path |
+| NFC | n/a | not fitted on this unit |
 
 Legend: ✅ works · 🚧 actively worked on · ⬜ not started
 
