@@ -58,9 +58,9 @@ in the DTS or the dtbo — it lives in the stock LK panel driver. Options: disas
 | Reset | ❓ unknown — ODM DT fragment; **GPIO8 is the working hypothesis** (unclaimed, pull-up, next to EINT7) |
 | HAL | `vendor.sw.swfingerprint@1.0`, `swfingerprint.default.so`, `fpsensor_fingerprint.default.so` |
 | Char devices | `/dev/sunwave_fp`, `/dev/teei_fp` (Trustonic TEE) |
-| **SPI path** | **inside the TEE trustlet** — the HAL builds a framed message (magic `0x100b`, [8-byte header][write data][read buffer]) and calls `sf_trustlet_client_exchange_message()`; the actual SPI happens in secure world |
+| **SPI path** | TEE trustlet, but **extractable**: the trustlets ship as plain ARM ELF in `/vendor/thh/ta/`. Sensor driver TA `7778…d4d4b` (`fpsensordriver.c`), core TA `7778…d4dc0` (`fp_tee_spi.c`, imports `ut_pf_spi_send_and_receive`), SPI bit-bang driver TA `93fe…4932` (`spi_gpio_api.c`, `drv_spi_api_transfer`) |
 | Kernel ABI seen | `ioctl 0x7302` reset, `0x7305/0x7306` SPI clock on/off, `0x7307/0x7308` power, `0x7309` (`_IOWR('s',9,8)`) IRQ wait, `0x7320`, `0x7330` version |
-| State | 🚫 **blocked** — no userspace SPI path exists; the protocol is in a signed trustlet, not the HAL |
+| State | 🚧 **feasible** — the trustlets are unencrypted ELF, so the register/image protocol can be reversed and reimplemented in libfprint over spidev/gpiod |
 
 **What is needed:** reset GPIO number (extract the ODM DT or the vendor
 `spi-sunwave-fp` driver), and the SPI register protocol (reverse the HAL's

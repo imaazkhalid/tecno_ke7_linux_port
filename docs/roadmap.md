@@ -52,32 +52,38 @@ driver pointer table at `0xffffff8008f7a6c0` (zero in the image: the table is
 `display-timings` until the panel locks at 60 Hz (or extract the exact porches
 from LK).
 
-### 2.2 Fingerprint (Sunwave) — BLOCKED by TEE design
+### 2.2 Fingerprint (Sunwave) — feasible, protocol extraction in progress
 
 **Known:** SPI0 CS0 @ 8 MHz (SPI pins GPIO6), EINT GPIO7, reset GPIO8 (hypothesis),
 `/dev/sunwave_fp`, `/dev/teei_fp`, HAL `swfingerprint.default.so`, chips SW8202/SW8231.
 
-**Why it is blocked:** the HAL never touches SPI. It builds a framed message
-(magic `0x100b`, 8-byte header with total/write/read lengths, then write payload,
-then a read buffer) and hands it to **`sf_trustlet_client_exchange_message()`**.
-The actual SPI transfer happens inside a signed Trustonic TEE trustlet in secure
-world. The kernel driver only exposes reset/power/clock/IRQ ioctls
-(`0x7302`, `0x7305/0x7306`, `0x7307/0x7308`, `0x7309`, `0x7320`, `0x7330`) — there is
-**no bulk-transfer ioctl** a mainline driver could use.
+**Key discovery (corrects the earlier "blocked" conclusion):** the Trustonic
+trustlets are stored as **plain, unencrypted ARM ELF** in `/vendor/thh/ta/`:
 
-**Consequences:**
-
-| Option | Feasible? |
+| TA | Role |
 |---|---|
-| libfprint over spidev | ❌ no SPI access, protocol unknown |
-| New kernel SPI driver | ❌ sensor command set is inside the trustlet |
-| Reuse vendor trustlet on mainline | ❌ Trustonic TEE not available upstream |
-| Reverse the trustlet binary | ❌ encrypted/signed, not in the filesystem |
+| `7778c03f…d4d4b.ta` | sensor driver — register access, AGC, image capture (`fpsensordriver.c`) |
+| `7778c03f…d4dc0.ta` | core TA — `fp_tee_spi.c`, template DB, imports `ut_pf_spi_send_and_receive` |
+| `93feffcc…4932.ta` | SPI GPIO driver — `spi_gpio_api.c`, `drv_spi_api_transfer` (bit-bang in TEE) |
+| `c09c9c5d…653a.ta` | template/format helper (`fingerprint size`) |
 
-**Recommendation:** defer fingerprint. Revisit only if a Sunwave SW8202 datasheet
-or a non-TEE firmware variant appears. Document the node (already in
-`dts/fingerprint-sunwave-sw8202.dtsi`) so the hardware is described even while
-unsupported.
+The HAL's framed messages (magic `0x100b`) are forwarded by the core TA through
+`ut_pf_spi_send_and_receive` to the sensor TA, which builds the actual sensor
+commands. Because the TAs are not encrypted, those commands can be recovered by
+disassembly.
+
+**Plan:**
+
+1. Disassemble the sensor TA around `fpsensordriver.c` string references to recover
+   the register read/write opcodes and the image-readout sequence.
+2. Recover the SPI mode/clock and the reset/power/IRQ sequencing from the core TA
+   and the kernel `sunwave-fp` driver (it still owns the pins).
+3. Implement a **libfprint backend** over `spidev` (fast path) or gpiod bit-bang
+   (fallback), with reset/power via gpiod.
+4. Image matching stays in userspace (libfprint/NBIS) — no TEE needed.
+
+**Note:** the TAs are vendor code and are **not** published in this repo; only the
+recovered protocol and our own implementation will be.
 
 ### 2.3 Main camera sensor — CLOSED
 

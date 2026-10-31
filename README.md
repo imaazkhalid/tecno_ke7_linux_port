@@ -48,7 +48,7 @@ kept honest.
 | Audio (MT6358 + GPIO 39 amp) | ⬜ planned | amplifier GPIO already identified |
 | Camera | ⬜ planned | main sensor identified: **Samsung S5K3P9SX** (16 MP); no mainline driver yet |
 | Sensors (via SCP) | ⬜ planned | MXC6655 accel, STK33562 ALS/PS, MMC5603 mag — behind SCP |
-| Fingerprint | 🚫 blocked | SPI runs inside a Trustonic TEE trustlet — no userspace path |
+| Fingerprint | 🚧 feasible | trustlets are plain ELF; sensor protocol extractable → libfprint backend |
 | NFC | n/a | not fitted on this unit |
 
 Legend: ✅ works · 🚧 actively worked on · ⬜ not started
