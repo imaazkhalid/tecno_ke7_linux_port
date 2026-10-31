@@ -89,6 +89,29 @@ driver. i2c addresses must be recovered from the SCP firmware.
 | Jack | ACCDET (headset + hook) |
 | State | ⬜ machine driver + amp node needed |
 
+## I²C map (from the running vendor kernel)
+
+| Bus | Address | Device |
+|---|---|---|
+| i2c-0 | `0x14` | `cap_touch` |
+| i2c-2 | `0x0c` | `camera_main_af` |
+| i2c-2 | `0x11` | `ccu_sensor_i2c_2_hw` |
+| i2c-2 | `0x18` | `camera_main_three` |
+| i2c-2 | `0x1a` | **`camera_main` (S5K3P9SX)** |
+| i2c-2 | `0x50` | `camera_main_eeprom` |
+| i2c-3 | `0x08` | `nfc` (not fitted) |
+| i2c-4 | `0x10` | `camera_main_two` |
+| i2c-4 | `0x12` | `ccu_sensor_i2c_4_hw` |
+| i2c-4 | `0x2d` | `camera_sub` |
+| i2c-4 | `0x52` | `camera_sub_eeprom` |
+| i2c-5 | `0x34` | `subpmic_pmu` |
+| i2c-5 | `0x4e` | `usb_type_c` |
+| i2c-5 | `0x53` | **RT9471 charger (`swchg`)** |
+| i2c-6 | `0x3e` | **`i2c_lcd_bias`** (backlight/bias IC) |
+| i2c-6 | `0x63` | `strobe_main` (AW36515 flash) |
+| i2c-7 | `0x16` | `camera_sub_two` |
+| i2c-7 | `0x4b` | `slave_charger` |
+
 ## Power / charging
 
 | Item | Value |
@@ -114,10 +137,15 @@ driver. i2c addresses must be recovered from the SCP firmware.
 | Item | Value |
 |---|---|
 | CAMSYS | `1a000000.camsys`, SENINF, CAMSV1–4, CCU |
-| Sub-sensors | **GC02M1** (2 MP macro), **OV02B10** (2 MP depth) — both have mainline drivers |
-| Main sensor | ❓ not in DT/HAL strings — only in MTK `kd_imgsensor` table |
-| Flash | AW36515 (i2c), HWEN GPIO 169 |
-| State | ⬜ hard; start with the two sub-sensors |
+| **Main sensor** | **Samsung S5K3P9SX** (16 MP), `s5k3p9sx_mipi_raw`, **i2c-2 `0x1a`** — confirmed from the vendor boot log |
+| 2nd main | i2c-4 `0x10` (`camera_main_two`) |
+| 3rd main | i2c-2 `0x18` (`camera_main_three`) |
+| Sub sensor | i2c-4 `0x2d` (`camera_sub`) |
+| Sub sensor 2 | i2c-7 `0x16` (`camera_sub_two`) |
+| EEPROMs | main `0x50` (i2c-2), sub `0x52` (i2c-4) |
+| Flash | **AW36515** at **i2c-6 `0x63`** (`strobe_main`), HWEN GPIO 169 |
+| Mainline | ❌ no `s5k3p9` driver; `gc02m1`/`ov02b10` not upstream either (nearest: `ov02a10`, `ov02c10`) |
+| State | ⬜ drivers needed; start with the main sensor (16 MP is the one users care about) |
 
 ## NFC
 

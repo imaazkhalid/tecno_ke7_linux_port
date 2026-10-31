@@ -78,14 +78,14 @@ TEE `/dev/teei_fp`, HAL `swfingerprint.default.so`, chips `ic_8202`/`ic_8231`.
 **Deliverable:** enable the node, add the libfprint backend, and document the
 image format (`Csunwave-image`).
 
-### 2.3 Main camera sensor
+### 2.3 Main camera sensor — CLOSED
 
-**Known:** GC02M1 (macro) and OV02B10 (depth) in DT; main sensor only in MTK's
-`kd_imgsensor` table.
-**Method:** open the camera with `logcat -b all` running and grep for
-`imgsensor`/`kd_imgsensor`/`SENSOR_ID`; the HAL logs the detected sensor. If the
-log is silent, read the sensor ID register over i2c from the vendor kernel's
-`/proc/driver/camera`.
+**Identified:** **Samsung S5K3P9SX** (`s5k3p9sx_mipi_raw`, 16 MP) at i2c-2 `0x1a`,
+from the vendor boot log. Full camera i2c map is in
+[hardware-matrix.md](hardware-matrix.md#i2c-map-from-the-running-vendor-kernel).
+
+**Next:** write the `s5k3p9` V4L2 subdev driver (no mainline driver exists yet;
+`ov02a10`/`ov02c10` are good structural references).
 
 ### 2.4 Sensor i2c addresses
 
