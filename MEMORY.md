@@ -197,6 +197,13 @@ Facts established:
   FDT at +0x40 — the 2022 LK accepts that, the 2020 LK does not.
 - U-Boot payloads end with their own control DTB (`totalsize≈12104`); stock kernels
   have **no** appended FDT, and an appended one changes which path LK takes.
+- **2026-10-31 18:50 — LK boot-image check CLEARED.** With `uboot_boot_rawfdt.img`
+  (raw FDT at the dtb offset) the 2020 LK logs
+  `[7113] kernel real kernel_sz=0x0004fcb8` (= 326,840, our stripped U-Boot) and runs
+  to tick 7320 with **no** `can't find v2 dtb` and **no** `fdt_op.c:855` panic.
+  The remaining failure is at/after U-Boot, not LK.
+- Current test image: `flash_images/uboot_boot_ctrldtb.img` — kernel = stripped U-Boot,
+  v2 dtb = **U-Boot's own control DTB** (12,088 B raw FDT), signed with avbtool.
 - `flash_images/lk_patched.img` is **cosmetic only**: 100 bytes, exactly three UI
   strings blanked (`0x67FD0`, `0x98878`, `0x98888`). Not a functional patch.
 - Static disassembly of `mmcblk0p27.bin` does **not** resolve string addresses
