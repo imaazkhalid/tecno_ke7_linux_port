@@ -16,7 +16,8 @@ map of everything else.
 | 7 | [android.md](android.md) | Stock ROM recovery, root, debloat, dialer |
 | 8 | [tooling.md](tooling.md) | mtkclient wrappers, META handshake, Windows-VM automation |
 | 9 | [reproduce.md](reproduce.md) | **Step-by-step from any device state** |
-| 10 | [legal.md](legal.md) | Ownership, IMEI law, firmware copyright — read before flashing |
+| 10 | [firmware.md](firmware.md) | exact build ID, manifest, SHA-256 verification |
+| 11 | [legal.md](legal.md) | Ownership, IMEI law, firmware copyright — read before flashing |
 
 ## Deep reference (raw research)
 
@@ -37,10 +38,12 @@ dead ends on purpose — they show *how* the conclusions were reached.
 
 | Path | Contents |
 |---|---|
-| [`../tools/`](../tools) | flashing scripts, META handshake, VM automation, on-device daemons |
+| [`../tools/`](../tools) | flashing/backup scripts, hardware extraction, META handshake, VM automation, on-device daemons |
+| [`../patches/`](../patches) | our kernel and U-Boot changes, apply-ready |
+| [`../configs/`](../configs) | exact kernel and U-Boot `.config` files |
 | [`../cellular-port/`](../cellular-port) | CCCI/CLDMA driver ported to mainline 6.18 |
-| [`../dts/`](../dts) | decompiled stock device trees + porting fragments |
-| [`../hardware/`](../hardware) | GPT table and sysfs/register dumps |
+| [`../dts/`](../dts) | decompiled stock device trees + mainline DTS + porting fragments |
+| [`../hardware/`](../hardware) | GPT table, sysfs/register dumps, regeneration guide |
 
 ## Looking for something specific?
 

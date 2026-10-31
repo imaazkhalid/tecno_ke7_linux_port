@@ -126,6 +126,7 @@ These are the parts we are most proud of — each one was a hard wall at some po
 docs/                 curated documentation (start here)
   ├── overview.md     goals, constraints, results
   ├── reproduce.md    THE step-by-step guide (any device state)
+  ├── firmware.md     exact build id, image manifest + SHA-256 verifier
   ├── hardware.md     board map, GPIO/I2C/IRQ reference
   ├── boot-chain.md   BROM → LK → U-Boot → Linux
   ├── linux-bringup.md kernel, DT, display, touch, USB, power
@@ -135,11 +136,27 @@ docs/                 curated documentation (start here)
   ├── tooling.md      mtkclient wrappers, META, VM automation
   ├── legal.md        ownership, IMEI law, firmware copyright
   └── reference/      raw research logs & inventories (deep detail)
-dts/                  device trees: stock (decompiled) + porting fragments
-hardware/             partition table and sysfs/register dumps
-tools/                flashing, META, VM automation, on-device daemons
+patches/              our kernel + U-Boot changes, apply-ready
+configs/              exact kernel and U-Boot .config files
+dts/                  stock (decompiled), mainline and porting device trees
+hardware/             partition table + dumps, with regeneration script
+tools/                flashing, backup, hardware extraction, META, VM automation
 cellular-port/        CCCI/CLDMA driver ported to mainline 6.18
 ```
+
+### Bring your own device
+
+Nothing here depends on our specific unit. The two scripts that make the repo
+portable are:
+
+```bash
+./tools/extract-hardware.sh     # regenerate every hardware dump from YOUR phone
+./tools/backup-partitions.sh    # full GPT + partition backup over BROM
+```
+
+Firmware is not hosted (copyright); [docs/firmware.md](docs/firmware.md) gives the
+exact build ID, per-image SHA-256 hashes and a verifier so you can confirm your own
+download is the right one.
 
 ---
 

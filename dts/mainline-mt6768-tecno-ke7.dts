@@ -1,0 +1,594 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Device Tree Source for Tecno Spark 6 (KE7)
+ * MediaTek Helio G70 (MT6768 / MT6769V)
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/linux-event-codes.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/leds/common.h>
+#include <dt-bindings/pinctrl/mediatek,mt6768-pinfunc.h>
+#include <dt-bindings/iio/adc/mediatek,mt6358-auxadc.h>
+#include <dt-bindings/iio/adc/mediatek,mt6370_adc.h>
+#include <dt-bindings/power/mt6768-power.h>
+#include <dt-bindings/clock/mediatek,mt6768-clk.h>
+#include "mt6768.dtsi"
+#include "mt6358.dtsi"
+
+/ {
+	model = "Tecno Spark 6 KE7";
+	compatible = "tecno,ke7", "mediatek,mt6768";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = &framebuffer0;
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		atf_reserved: atf@4ce00000 {
+			reg = <0x0 0x4ce00000 0x0 0x00060000>;
+			no-map;
+		};
+
+		ram_console: ram_console@4d000000 {
+			reg = <0x0 0x4d000000 0x0 0x00010000>;
+			no-map;
+		};
+
+		ramoops: ramoops@4d010000 {
+			compatible = "ramoops";
+			reg = <0x0 0x4d010000 0x0 0x000e0000>;
+			record-size = <0x20000>;
+			console-size = <0x40000>;
+			ftrace-size = <0x0>;
+			pmsg-size = <0x20000>;
+		};
+
+		tee_reserved: tee@70000000 {
+			reg = <0x0 0x70000000 0x0 0x02a00000>;
+			no-map;
+		};
+
+		framebuffer_reserved: framebuffer@7e9f0000 {
+			reg = <0x0 0x7e9f0000 0x0 0x01500000>;
+			no-map;
+		};
+
+		sspm_reserved: sspm@7ff00000 {
+			reg = <0x0 0x7ff00000 0x0 0x000c0000>;
+			no-map;
+		};
+
+		consys_reserve_mem: consys-reserve-memory {
+			compatible = "mediatek,consys-reserve-memory";
+			no-map;
+			size = <0x0 0x400000>;
+			alignment = <0x0 0x1000000>;
+			alloc-ranges = <0x0 0x40000000 0x0 0x80000000>;
+		};
+
+		wifi_reserve_mem: wifi-reserve-memory {
+			compatible = "mediatek,wifi-reserve-memory";
+			no-map;
+			size = <0x0 0x300000>;
+			alignment = <0x0 0x1000000>;
+			alloc-ranges = <0x0 0x40000000 0x0 0x80000000>;
+		};
+	};
+
+	framebuffer0: framebuffer@7e9f0000 {
+		compatible = "simple-framebuffer";
+		reg = <0x0 0x7e9f0000 0x0 0x01500000>;
+		format = "a8r8g8b8";
+		width = <720>;
+		height = <1640>;
+		stride = <2944>;
+		status = "okay";
+	};
+
+	memory@40000000 {
+		device_type = "memory";
+		reg = <0x0 0x40000000 0x0 0x3e9f0000>;
+	};
+
+	battery: battery {
+		compatible = "simple-battery";
+		device-chemistry = "lithium-ion";
+		charge-full-design-microamp-hours = <5000000>;
+		voltage-min-design-microvolt = <3400000>;
+		voltage-max-design-microvolt = <4400000>;
+		constant-charge-voltage-max-microvolt = <4396000>;
+		constant-charge-current-max-microamp = <2050000>;
+		ocv-capacity-celsius = <25>;
+		ocv-capacity-table-0 =
+			<4320000 100>, <4263000 95>, <4210000 90>, <4157000 85>,
+			<4105000 80>, <4065000 75>, <4004000 70>, <3972000 65>,
+			<3920000 60>, <3878000 55>, <3850000 50>, <3830000 45>,
+			<3812000 40>, <3797000 35>, <3780000 30>, <3760000 25>,
+			<3743000 20>, <3715000 15>, <3695000 10>, <3660000 7>,
+			<3600000 5>, <3520000 3>, <3450000 1>, <3400000 0>;
+	};
+
+	fuel_gauge: fuel-gauge {
+		compatible = "adc-battery";
+		io-channels = <&pmic_adc MT6358_AUXADC_VBAT>;
+		io-channel-names = "voltage";
+		monitored-battery = <&battery>;
+		power-supplies = <&charger>;
+	};
+};
+
+&auxadc {
+	status = "okay";
+};
+
+&toprgu {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&usb2 {
+	status = "okay";
+};
+
+&usb2phy {
+	status = "okay";
+};
+
+/* PMIC on pwrap with board EINT GPIO 144 */
+&pmic {
+	interrupts-extended = <&pio 144 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+&mt6358keys {
+	key-volume-up {
+		linux,keycodes = <KEY_VOLUMEUP>;
+	};
+};
+
+&mt6358_vdram2_reg {
+	regulator-always-on;
+};
+
+&mt6358_vemc_reg {
+	regulator-always-on;
+};
+
+&mt6358_vldo28_reg {
+	regulator-always-on;
+	regulator-boot-on;
+};
+
+&mt6358_vio18_reg {
+	regulator-always-on;
+};
+
+&mt6358_vio28_reg {
+	regulator-always-on;
+};
+
+&mt6358_vaux18_reg {
+	regulator-always-on;
+};
+
+/* CPU DVFS supplies */
+&cci {
+	proc-supply = <&mt6358_vproc12_reg>;
+};
+
+&cpu0 {
+	proc-supply = <&mt6358_vproc12_reg>;
+};
+
+&cpu1 {
+	proc-supply = <&mt6358_vproc12_reg>;
+};
+
+&cpu2 {
+	proc-supply = <&mt6358_vproc12_reg>;
+};
+
+&cpu3 {
+	proc-supply = <&mt6358_vproc12_reg>;
+};
+
+&cpu4 {
+	proc-supply = <&mt6358_vproc12_reg>;
+};
+
+&cpu5 {
+	proc-supply = <&mt6358_vproc12_reg>;
+};
+
+&cpu6 {
+	proc-supply = <&mt6358_vproc11_reg>;
+};
+
+&cpu7 {
+	proc-supply = <&mt6358_vproc11_reg>;
+};
+
+/* GPU */
+&gpu {
+	status = "okay";
+	mali-supply = <&mt6358_vgpu_reg>;
+};
+
+&mt6358_vgpu_reg {
+	regulator-max-microvolt = <950000>;
+	regulator-always-on;
+	regulator-boot-on;
+	regulator-coupled-with = <&mt6358_vsram_gpu_reg>;
+	regulator-coupled-max-spread = <100000>;
+};
+
+&mt6358_vsram_gpu_reg {
+	regulator-min-microvolt = <850000>;
+	regulator-max-microvolt = <1050000>;
+	regulator-always-on;
+	regulator-boot-on;
+	regulator-coupled-with = <&mt6358_vgpu_reg>;
+	regulator-coupled-max-spread = <100000>;
+};
+
+&mfg_async {
+	domain-supply = <&mt6358_vsram_gpu_reg>;
+};
+
+&mfg {
+	domain-supply = <&mt6358_vgpu_reg>;
+};
+
+/* eMMC storage */
+&mmc0 {
+	status = "okay";
+	pinctrl-names = "default", "state_uhs";
+	pinctrl-0 = <&mmc0_default_pins>;
+	pinctrl-1 = <&mmc0_uhs_pins>;
+	bus-width = <8>;
+	max-frequency = <200000000>;
+	cap-mmc-highspeed;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	cap-mmc-hw-reset;
+	no-sdio;
+	no-sd;
+	non-removable;
+	supports-cqe;
+	hs400-ds-delay = <0x12814>;
+	vmmc-supply = <&mt6358_vemc_reg>;
+	vqmmc-supply = <&mt6358_vio18_reg>;
+};
+
+&pio {
+	mmc0_default_pins: mmc0-default-pins {
+		pins-clk {
+			pinmux = <PINMUX_GPIO124__FUNC_MSDC0_CLK>;
+			drive-strength = <MTK_DRIVE_4mA>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+		};
+
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO123__FUNC_MSDC0_DAT0>,
+				 <PINMUX_GPIO128__FUNC_MSDC0_DAT1>,
+				 <PINMUX_GPIO125__FUNC_MSDC0_DAT2>,
+				 <PINMUX_GPIO132__FUNC_MSDC0_DAT3>,
+				 <PINMUX_GPIO126__FUNC_MSDC0_DAT4>,
+				 <PINMUX_GPIO129__FUNC_MSDC0_DAT5>,
+				 <PINMUX_GPIO127__FUNC_MSDC0_DAT6>,
+				 <PINMUX_GPIO130__FUNC_MSDC0_DAT7>,
+				 <PINMUX_GPIO122__FUNC_MSDC0_CMD>;
+			input-enable;
+			drive-strength = <MTK_DRIVE_4mA>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+		};
+
+		pins_ds {
+			pinmux = <PINMUX_GPIO131__FUNC_MSDC0_DSL>;
+			drive-strength = <MTK_DRIVE_4mA>;
+		};
+
+		pins-rst {
+			pinmux = <PINMUX_GPIO133__FUNC_MSDC0_RSTB>;
+			drive-strength = <MTK_DRIVE_6mA>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+		};
+	};
+
+	mmc0_uhs_pins: mmc0-uhs-pins {
+		pins-clk {
+			pinmux = <PINMUX_GPIO124__FUNC_MSDC0_CLK>;
+			drive-strength = <MTK_DRIVE_8mA>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+		};
+
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO123__FUNC_MSDC0_DAT0>,
+				 <PINMUX_GPIO128__FUNC_MSDC0_DAT1>,
+				 <PINMUX_GPIO125__FUNC_MSDC0_DAT2>,
+				 <PINMUX_GPIO132__FUNC_MSDC0_DAT3>,
+				 <PINMUX_GPIO126__FUNC_MSDC0_DAT4>,
+				 <PINMUX_GPIO129__FUNC_MSDC0_DAT5>,
+				 <PINMUX_GPIO127__FUNC_MSDC0_DAT6>,
+				 <PINMUX_GPIO130__FUNC_MSDC0_DAT7>,
+				 <PINMUX_GPIO122__FUNC_MSDC0_CMD>;
+			input-enable;
+			drive-strength = <MTK_DRIVE_8mA>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+		};
+
+		pins-ds {
+			pinmux = <PINMUX_GPIO131__FUNC_MSDC0_DSL>;
+			drive-strength = <MTK_DRIVE_8mA>;
+			bias-pull-down = <MTK_PUPD_SET_R1R0_10>;
+		};
+
+		pins-rst {
+			pinmux = <PINMUX_GPIO133__FUNC_MSDC0_RSTB>;
+			drive-strength = <MTK_DRIVE_8mA>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_01>;
+		};
+	};
+
+	/*
+	 * Modem SIM1 front end.
+	 *
+	 * The stock boot chain muxes these pads from the vendor DWS
+	 * (dtbo fragment@30) before Linux starts, so the upstream kernel never
+	 * has to touch them and no mainline driver declares them.  We boot with
+	 * U-Boot, which leaves every pad in its reset state (plain GPIO), i.e.
+	 * the modem's SIM hot-plug EINT input is disconnected from GPIO47 and
+	 * the SIM card I/O, clock and reset lines are disconnected as well.
+	 *
+	 * GPIO47  mode 1 -> MD_INT1_C2K_UIM0_HOT_PLUG (modem EINT input)
+	 * GPIO172 mode 1 -> MD1_SIM1_SCLK
+	 * GPIO173 mode 1 -> MD1_SIM1_SRST
+	 * GPIO174 mode 1 -> MD1_SIM1_SIO
+	 *
+	 * Applied through pinctrl-0 of the mdcldma node so it is programmed
+	 * before the CCCI driver releases the modem from reset.
+	 */
+	md_sim_pins: md-sim-pins {
+		pins-hot-plug {
+			pinmux = <PINMUX_GPIO47__FUNC_MD_INT1_C2K_UIM0_HOT_PLUG>;
+			input-enable;
+		};
+
+		pins-sim1-io {
+			pinmux = <PINMUX_GPIO172__FUNC_MD1_SIM1_SCLK>,
+				 <PINMUX_GPIO173__FUNC_MD1_SIM1_SRST>,
+				 <PINMUX_GPIO174__FUNC_MD1_SIM1_SIO>;
+		};
+	};
+
+	spi2_pins: spi2-pins {
+		pins-spi {
+			pinmux = <PINMUX_GPIO25__FUNC_SPI2_CSB>,
+				 <PINMUX_GPIO26__FUNC_SPI2_MO>,
+				 <PINMUX_GPIO27__FUNC_SPI2_CLK>,
+				 <PINMUX_GPIO28__FUNC_SPI2_MI>;
+			bias-disable;
+		};
+	};
+
+	touch_pins: touch-pins {
+		pins-int {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			input-enable;
+			bias-pull-up;
+		};
+
+		pins-rst {
+			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
+			output-high;
+		};
+	};
+
+	i2c5_pins: i2c5-pins {
+		pins-bus {
+			pinmux = <PINMUX_GPIO48__FUNC_SCL5>,
+				 <PINMUX_GPIO49__FUNC_SDA5>;
+			bias-pull-up;
+		};
+	};
+
+	rt9471_pins: rt9471-pins {
+		pins-intr {
+			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
+			input-enable;
+			bias-pull-up;
+		};
+	};
+};
+
+&i2c5 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c5_pins>;
+	clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	charger: charger@53 {
+		compatible = "richtek,rt9471";
+		reg = <0x53>;
+		wakeup-source;
+		pinctrl-names = "default";
+		pinctrl-0 = <&rt9471_pins>;
+		interrupts-extended = <&pio 9 IRQ_TYPE_EDGE_FALLING>;
+	};
+};
+
+&spi2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi2_pins>;
+	mediatek,pad-select = <0>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	touchscreen@0 {
+		compatible = "novatek,nt36672a-ts";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		spi-cs-setup-delay-ns = <20>;
+		interrupts-extended = <&pio 1 IRQ_TYPE_EDGE_FALLING>;
+		reset-gpios = <&pio 0 GPIO_ACTIVE_LOW>;
+		vcc-supply = <&mt6358_vldo28_reg>;
+		iovcc-supply = <&mt6358_vio18_reg>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&touch_pins>;
+		touchscreen-size-x = <720>;
+		touchscreen-size-y = <1640>;
+		firmware-name = "novatek_ts_fw.bin";
+	};
+};
+
+/* Disable unused MMSYS display components to avoid sync_state blocking */
+&ovl0 { status = "disabled"; };
+&ovl_2l0 { status = "disabled"; };
+&rdma0 { status = "disabled"; };
+&wdma0 { status = "disabled"; };
+&color0 { status = "disabled"; };
+&ccorr0 { status = "disabled"; };
+&aal0 { status = "disabled"; };
+&gamma0 { status = "disabled"; };
+&dither0 { status = "disabled"; };
+&mutex { status = "disabled"; };
+
+&{/soc} {
+	btif: btif@1100c000 {
+		compatible = "mediatek,btif";
+		reg = <0 0x1100c000 0 0x1000>,
+		      <0 0x11000b80 0 0x80>,
+		      <0 0x11000c00 0 0x80>;
+		interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 115 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 141 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "btif", "tx_dma", "rx_dma";
+		clocks = <&infracfg_ao CLK_INFRA_BTIF>,
+			 <&infracfg_ao CLK_INFRA_AP_DMA>;
+		clock-names = "btifc", "apdmac";
+		status = "okay";
+	};
+
+	consys: consys@18002000 {
+		compatible = "mediatek,mt6768-consys";
+		reg = <0 0x18002000 0 0x1000>,
+		      <0 0x10007000 0 0x100>,
+		      <0 0x10001000 0 0x1000>,
+		      <0 0x10006000 0 0x1000>,
+		      <0 0x18007000 0 0x1000>,
+		      <0 0x180b1000 0 0x1000>,
+		      <0 0x180a3000 0 0x1000>,
+		      <0 0x180a5000 0 0x800>,
+		      <0 0x180c1000 0 0x1000>,
+		      <0 0x18004000 0 0x1000>;
+		interrupts = <GIC_SPI 284 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 78 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_SPI 287 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "bgf_eint", "wdt_eint", "conn2ap_sw_irq";
+		power-domains = <&spm MT6768_POWER_DOMAIN_CONN>;
+		memory-region = <&consys_reserve_mem>;
+		status = "okay";
+	};
+
+	wifi: wifi@18000000 {
+		compatible = "mediatek,wifi";
+		reg = <0 0x18000000 0 0x100000>;
+		interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_LOW>;
+		power-domains = <&spm MT6768_POWER_DOMAIN_CONN>;
+		memory-region = <&wifi_reserve_mem>;
+		status = "okay";
+	};
+
+	mdcldma: mdcldma@10014000 {
+		compatible = "mediatek,mdcldma";
+		reg = <0 0x10014000 0 0x1000>,
+		      <0 0x1021b000 0 0x1000>,
+		      <0 0x10209000 0 0x1000>,
+		      <0 0x1020a000 0 0x1000>;
+		interrupts = <GIC_SPI 180 IRQ_TYPE_LEVEL_HIGH>,
+		             <GIC_SPI 164 IRQ_TYPE_LEVEL_LOW>,
+		             <GIC_SPI 165 IRQ_TYPE_LEVEL_LOW>,
+		             <GIC_SPI 75 IRQ_TYPE_EDGE_FALLING>;
+		power-domains = <&spm MT6768_POWER_DOMAIN_MD1>;
+		/*
+		 * Vendor order (stock DTB): scp-sys-md1-main, infra-cldma-bclk,
+		 * infra-ccif-ap, infra-ccif-md, infra-ccif1-ap, infra-ccif1-md,
+		 * infra-ccif2-ap, infra-ccif2-md.  ccci_hif_ccif/_cldma look
+		 * these up by name on this device; without them the CCIF and
+		 * CLDMA gates are never enabled by the driver.
+		 */
+		clock-names = "infra-cldma-bclk",
+			      "infra-ccif-ap", "infra-ccif-md",
+			      "infra-ccif1-ap", "infra-ccif1-md",
+			      "infra-ccif2-ap", "infra-ccif2-md";
+		clocks = <&infracfg_ao CLK_INFRA_CLDMA_BCLK>,
+			 <&infracfg_ao CLK_INFRA_CCIF_AP>,
+			 <&infracfg_ao CLK_INFRA_CCIF_MD>,
+			 <&infracfg_ao CLK_INFRA_CCIF1_AP>,
+			 <&infracfg_ao CLK_INFRA_CCIF1_MD>,
+			 <&infracfg_ao CLK_INFRA_CCIF2_AP>,
+			 <&infracfg_ao CLK_INFRA_CCIF2_MD>;
+		cldma-infracfg = <&infracfg_ao>;
+		mediatek,cldma_capability = <0x6>;
+		mediatek,md_id = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&md_sim_pins>;
+		status = "okay";
+	};
+
+	/*
+	 * Modem SIM1 hot-plug EINT descriptor.
+	 *
+	 * The CCCI RPC port answers the modem's IPC_RPC_GET_EINT_ATTR_OP
+	 * (0x4005) queries purely by reading these raw cells with
+	 * of_property_read_u32_index(); no real interrupt is requested here,
+	 * so no interrupt-parent is needed.  Values are copied verbatim from
+	 * the stock Tecno KE7 DTBO (dtbo fragment@36), which overlays the
+	 * otherwise empty "md1_sim1_hot_plug_eint" stub found in the stock
+	 * boot DTB.
+	 *
+	 * Without this node the modem's md_init task receives error replies
+	 * for every SIM EINT attribute, stops right after its 12 RPC queries
+	 * (boot stats frozen at "S2"/"TC 7") and never issues any FSD/NVRAM
+	 * request, so handshake 2 never arrives.
+	 *
+	 * interrupts = <EINT_number, IRQ_TYPE_LEVEL_LOW>
+	 */
+	md1_sim1_hot_plug_eint: md1_sim1_hot_plug_eint {
+		compatible = "mediatek,md1_sim1_hot_plug_eint-eint";
+		debounce = <0 10000>;		/* usec -> 10 ms for the MD */
+		dedicated = <0 0>;
+		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
+		sockettype = <0 0>;
+		src_pin = <0 1>;
+		status = "okay";
+	};
+
+	/*
+	 * Stock KE7 DTB keeps an EMPTY md1_sim2_hot_plug_eint stub (only a
+	 * phandle, no properties).  It matters: with the node present the CCCI
+	 * RPC layer answers the modem's SIM2 EINT queries with a 4-byte
+	 * "-12 (ERR_SIM_HOT_PLUG_QUERY_TYPE)" payload, whereas a missing node
+	 * yields "-11" with an EMPTY payload.  Keep the stub to stay
+	 * byte-identical to the vendor's reply stream.
+	 */
+	md1_sim2_hot_plug_eint: md1_sim2_hot_plug_eint {
+	};
+};
