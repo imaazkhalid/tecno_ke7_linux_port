@@ -2220,3 +2220,36 @@ python3 tools/snw_drive.py <IMEI1> <IMEI2>
 1. Power-cycle the phone (it is left in META by `Keep in Meta = True`).
 2. Verify: `*#06#` and `getprop | grep -i imei` (or `service call iphonesubinfo`).
 3. Resume debloat + full hardware map (`HARDWARE_RESEARCH_AND_DRIVER_RE.md`).
+
+## 55. Post-restore verification & dialer install, 2026-10-31
+
+### IMEI verified on a booted Android
+```
+adb shell "su -c 'service call iphonesubinfo 1'"
+# Parcel (UTF-16): <IMEI1>  <- correct
+```
+`dumpsys telephony.registry`: SIM in slot 1 is `IN_SERVICE` on **Jazz**
+(MCC 410 / MNC 01), LTE band 1850, voice+data registered. The modem only
+attaches with a valid IMEI, so this is independent confirmation that the write
+took effect.
+
+### Dialer
+The retail ROM's dialer package was **absent from /system** (not merely
+disabled — `pm list packages -u` does not list it, and
+`cmd package query-activities -a android.intent.action.DIAL` returned nothing).
+`com.android.incallui`, `com.android.server.telecom` and `com.android.phone`
+are present and enabled, but no app owned the DIAL role.
+
+Installed **Fossify Phone 1.11.1** (FOSS, ~8.8 MB, `org.fossify.phone`):
+```
+adb install -r -g fossify_phone.apk
+adb shell cmd role add-role-holder android.app.role.DIALER org.fossify.phone
+```
+Verification:
+- `dumpsys telecom` -> `User 0: org.fossify.phone` as InCallService (default phone app).
+- `query-activities -a android.intent.action.DIAL` -> `org.fossify.phone.activities.DialpadActivity`.
+- `am start -a android.intent.action.DIAL -d tel:12345` opens the dialpad;
+  screenshot confirms keypad + call button, signal bars and 4G in the status bar.
+
+Note: `cmd telecom get-default-dialer` / `cmd role get-role-holders` are not
+implemented on this build; use `dumpsys telecom` to check the role instead.
