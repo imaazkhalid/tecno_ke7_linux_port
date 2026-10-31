@@ -156,7 +156,11 @@ Three different U-Boot payloads exist in the repo root, all packaged as 32 MiB
 The stale `mmc 0:28` was never going to boot the current layout: p28 has no filesystem,
 so `load` fails and the board resets in a ~25 s loop with a black screen.
 
-### 3.5 Why Linux does not boot (as of 2026-10-31 18:00)
+### 3.5 Why Linux does not boot (as of 2026-10-31 18:15)
+
+**Goal (do not lose this):** U-Boot as the phone's UEFI, so distros are installed by
+dropping files on the ESP — no rebuilding boot images, no reflashing. systemd-boot is
+optional; **U-Boot is required.** Never "simplify" the chain by dropping it.
 
 Both the port-era U-Boot and `u-boot-boot.img` produce, in LK's own log:
 
@@ -174,10 +178,19 @@ Facts established:
 - The `dtb` field of every image (ours **and** retail stock) is a 64-byte DTBO
   table (`d7b7ab1e`) with the FDT at +0x40 — not a raw FDT.
 - U-Boot payloads **do** end with their own control DTB (`totalsize≈12104`,
-  ending exactly at the payload end).
+  ending exactly at the payload end). Stock Android kernels have **no** appended FDT.
+- `flash_images/lk_patched.img` is **cosmetic only**: 100 bytes, exactly three UI
+  strings blanked (`0x67FD0` "Your device will boot in 5 seconds", `0x98878`
+  "Orange State", `0x98888` "Your device has been unlocked…"). Not a functional
+  patch; it cannot fix the DTB check. Do not waste a flash on it for this.
 - Setting `dtb_size=0` at header offset 1648 (3 bytes) to force the
   "DTB packed with kernel" path was flashed but **never actually tested** —
   the phone never booted because mtkclient was hijacking every boot (§4 rule).
+- Static disassembly of `mmcblk0p27.bin` did **not** resolve string addresses:
+  no `adrp` to the string pages, no 64-bit literal pointers. The file-offset → VA
+  mapping for this LK image is unknown. Header: magic `0x58881688`, size field
+  `0x0F6F8C`, preloader loads from partition+`0x200`, reported size `0xF1C70`.
+  Next attempt must parse the MTK header properly or use REA — not guess.
 
 **Next time:** kill every mtkclient, power-cycle, wait 90 s untouched, *then* dump
 `expdb` and check whether the newest LK session still hits fdt_op.c:855.
