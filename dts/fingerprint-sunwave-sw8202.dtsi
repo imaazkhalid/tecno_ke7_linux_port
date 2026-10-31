@@ -1,0 +1,44 @@
+/*
+ * Tecno Spark 6 (KE7) — Sunwave fingerprint sensor
+ *
+ * Identified from the running vendor ROM:
+ *   SPI device        spi0.0, modalias "spi:sunwave-fp", driver "sunwave-fp"
+ *   SPI clock         8 MHz (vendor DT: spi-max-frequency = 0x7a1200)
+ *   SPI pins          GPIO6 group (pinctrl "spi0.0")
+ *   Interrupt         EINT GPIO7
+ *   Reset             GPIO8 (hypothesis — the ODM DT node is not in the main
+ *                     FDT; confirm before enabling)
+ *   HAL               vendor.sw.swfingerprint@1.0 / swfingerprint.default.so
+ *   Char devices      /dev/sunwave_fp, /dev/teei_fp (Trustonic TEE)
+ *   Chips             Sunwave "ic_8202" / "ic_8231" (SW8202 / SW8231 class)
+ *
+ * The vendor driver is not in the GKI source drop, so the SPI protocol is
+ * still unknown. Recommended mainline path: expose the bus to userspace
+ * (spidev or a thin sunwave-fp driver) and implement the protocol in a
+ * libfprint backend. That keeps the kernel side small and upstreamable and
+ * avoids the vendor TEE entirely.
+ *
+ * Status: node kept disabled until the reset GPIO and protocol are confirmed.
+ */
+
+&spi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	mediatek,pad-select = <0>;
+
+	fingerprint@0 {
+		compatible = "sunwave,sw8202";
+		reg = <0>;
+
+		spi-max-frequency = <8000000>;
+		spi-cs-setup-delay-ns = <20>;
+
+		interrupt-parent = <&pio>;
+		interrupts = <7 IRQ_TYPE_EDGE_RISING>;
+
+		reset-gpios = <&pio 8 GPIO_ACTIVE_LOW>;
+
+		status = "disabled";
+	};
+};

@@ -71,7 +71,12 @@ TEE `/dev/teei_fp`, HAL `swfingerprint.default.so`, chips `ic_8202`/`ic_8231`.
    a **libfprint** backend that talks SPI directly from userspace (no kernel ABI
    needed) — recommended for upstream.
 
-**Deliverable:** `dts` node + libfprint driver + firmware extraction note.
+**Progress:** DT fragment written —
+[`../dts/fingerprint-sunwave-sw8202.dtsi`](../dts/fingerprint-sunwave-sw8202.dtsi)
+(SPI0 CS0, 8 MHz, IRQ GPIO7, reset GPIO8 as hypothesis, disabled until confirmed).
+
+**Deliverable:** enable the node, add the libfprint backend, and document the
+image format (`Csunwave-image`).
 
 ### 2.3 Main camera sensor
 
