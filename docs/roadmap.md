@@ -96,16 +96,18 @@ Alternative: halt the SCP and scan i2c-0..8 with a scope-free bus scan (risky).
 
 ### 2.5 Wi-Fi / Bluetooth (MT6631)
 
-No upstream driver exists for MT6631. Two routes:
+**Correction (from the MT6631 datasheet):** MT6631 is only the **RF front-end**;
+the Wi-Fi MAC/baseband and the BT/GNSS logic are in the **MT6768 CONNSYS**. This
+means the `mt76` family (standalone PCIe/USB/SDIO chips) is **not applicable**.
 
 | Route | Pros | Cons |
 |---|---|---|
-| Extend `mt76` | upstreamable, maintained | MT6631 is a different core; large reverse-engineering effort |
-| Port vendor `wlan_drv_gen4m` | known to work | out-of-tree, breaks every kernel, not upstreamable |
+| Port vendor `wlan_drv_gen4m` + `wmt_drv` to LTS | known to work, matches hardware | out-of-tree, large (5 MB+), not upstreamable as-is |
+| New CONNSYS/WMT driver | only real long-term path | multi-month, needs firmware/HW docs |
 
-**Recommendation:** keep the vendor port as a *diagnostic* tool, but do not ship it
-as the long-term solution. The realistic upstream path is a `mtk-conninfra` +
-`mt76` glue driver, which is a multi-month project.
+**Recommendation:** port the vendor gen4m stack to the current LTS as a stopgap
+(the same approach used for CCCI), and structure it as a separate module tree so
+kernel bumps are contained. A clean upstream driver is a separate project.
 
 ### 2.6 NFC
 

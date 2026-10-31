@@ -130,7 +130,8 @@ driver. i2c addresses must be recovered from the SCP firmware.
 | BT firmware | `soc1_0_ram_bt_1a_1_hdr.bin`, `BT_FW.cfg` |
 | FM firmware | `mt6631_fm_v1_patch.bin`, `mt6631_fm_v1_coeff.bin` |
 | Vendor modules | `wlan_drv_gen4m.ko`, `wmt_drv.ko`, `wmt_chrdev_wifi.ko`, `bt_drv.ko`, `gps_drv.ko`, `fmradio_drv.ko` |
-| State | 🚧 vendor driver port in progress; no upstream MT6631 driver yet |
+| Architecture | **MT6631 is the RF front-end only** — the Wi-Fi MAC/baseband lives in the MT6768 CONNSYS. `mt76` (standalone PCIe/USB/SDIO chips) does **not** apply. |
+| State | 🚧 needs a CONNSYS/WMT driver port (vendor `wlan_drv_gen4m` is the reference) |
 
 ## Camera
 
