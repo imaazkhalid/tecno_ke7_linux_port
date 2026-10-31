@@ -129,6 +129,25 @@ listener redesigns: **pull the battery.** It is a two-minute fix and it was the 
 root cause both times the phone appeared unreachable. Document this before touching
 any tooling.
 
+### 3.4 U-Boot bootcmd is compiled in — there is NO env partition
+
+The `boot` partition (p30) is an Android boot image whose `kernel` field is a gzipped
+U-Boot. Its `bootcmd` is **compiled in**; the GPT has no `uboot_env`, and the payload
+has no `saveenv`. So changing boot behaviour means flashing a different U-Boot image —
+`setenv`/`saveenv` on the phone is not an option.
+
+Three different U-Boot payloads exist in the repo root, all packaged as 32 MiB
+`ANDROID!` images with page=2048, kaddr=0x40080000, raddr=0x47c80000, ramdisk 796063:
+
+| Image | bootcmd target | Use |
+|---|---|---|
+| `arch_state/mmcblk0p30.bin` | `mmc 0:28` `/Image.mainline`, root=/dev/mmcblk0p43 | **STALE** — p28 is `lk2`, p43 is Android `/data` |
+| `u-boot-boot.img` | `mmc 0:40 /EFI/BOOT/BOOTAA64.EFI` → `bootefi` | **correct** — ESP *is* p40 → systemd-boot → arch.conf → SD |
+| `u-boot-sd-nofooter.img` | `mmc 1:1` `/Image` + DTB, root=PARTUUID(SD) | direct-from-SD fallback, no systemd-boot |
+
+The stale `mmc 0:28` was never going to boot the current layout: p28 has no filesystem,
+so `load` fails and the board resets in a ~25 s loop with a black screen.
+
 ## 4. Recovery / flashing rules
 
 - **Before any write:** `./tools/save-state.sh <label>`.
