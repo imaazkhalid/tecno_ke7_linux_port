@@ -61,6 +61,9 @@ Rules:
 
 - The DT must compile with **zero warnings** on every new kernel
   (`make dtbs_check W=1`).
+- Run [`../tools/check-kernel.sh`](../tools/check-kernel.sh) on every LTS (and on
+  `linux-next` as a canary). It builds the KE7 DTB and the panel driver, and
+  restores your `.config` afterwards.
 - Any driver API change is handled in the same merge window it appears — never
   accumulate a delta.
 - Keep a `compatibility.md` note per kernel major: what built, what broke, what was
