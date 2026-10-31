@@ -10,6 +10,15 @@ hard rules) belong in `/home/mk/AGENTS.md` §3 instead, which is loaded every se
 
 **Last updated:** 2026-10-31 18:10 — Android restored and verified rooted; Linux blocked at LK DTB assert.
 
+
+> **DIRECTION CHANGE (2026-10-31 19:40):** the Linux port is **parked, not abandoned**.
+> Decision: Android is the target again, with the goal of **porting a newer Android**
+> to this phone. All Linux artifacts stay on disk and verified
+> (`backup/arch_state_20261025/`: rootfs.tar.zst 673 pkgs, esp.tar.zst, all raw
+> partitions; `u-boot/` source tree; LK/U-Boot findings in §3.5-§3.6). Do not delete
+> them. Do not resume the Linux boot-chain work unless the user asks.
+> Android is restored from `backup/known-good-rooted-20261031-124522/`
+> (boot/recovery/vbmeta×3/misc) — that state is verified working, rooted, data intact.
 ---
 
 ## 1. Current state
