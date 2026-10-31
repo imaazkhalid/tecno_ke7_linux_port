@@ -1,0 +1,576 @@
+| All binderized services (registered with hwservicemanager)
+VINTF R Interface                                                                     Thread Use Server Clients
+FM    Y android.frameworks.cameraservice.service@2.0::ICameraService/default          N/A        N/A    
+FM    Y android.frameworks.displayservice@1.0::IDisplayService/default                N/A        N/A    
+FM    Y android.frameworks.schedulerservice@1.0::ISchedulingPolicyService/default     N/A        N/A    
+FM    Y android.frameworks.sensorservice@1.0::ISensorManager/default                  N/A        N/A    
+FM    Y android.frameworks.stats@1.0::IStats/default                                  N/A        N/A    
+DM,FC Y android.hardware.audio.effect@5.0::IEffectsFactory/default                    N/A        N/A    
+DM,FC Y android.hardware.audio@5.0::IDevicesFactory/default                           N/A        N/A    
+DM,FC Y android.hardware.biometrics.fingerprint@2.1::IBiometricsFingerprint/default   N/A        N/A    
+DM,FC Y android.hardware.bluetooth.audio@2.0::IBluetoothAudioProvidersFactory/default N/A        N/A    
+DM,FC Y android.hardware.bluetooth@1.0::IBluetoothHci/default                         N/A        N/A    
+DM,FC Y android.hardware.camera.provider@2.4::ICameraProvider/internal/0              N/A        N/A    
+DM    Y android.hardware.cas@1.0::IMediaCasService/default                            N/A        N/A    
+DM,FC Y android.hardware.cas@1.1::IMediaCasService/default                            N/A        N/A    
+DM    Y android.hardware.configstore@1.0::ISurfaceFlingerConfigs/default              N/A        N/A    
+DM,FC Y android.hardware.configstore@1.1::ISurfaceFlingerConfigs/default              N/A        N/A    
+DM,FC Y android.hardware.drm@1.0::ICryptoFactory/clearkey                             N/A        N/A    
+DM,FC Y android.hardware.drm@1.0::ICryptoFactory/default                              N/A        N/A    
+DM,FC Y android.hardware.drm@1.0::ICryptoFactory/widevine                             N/A        N/A    
+DM,FC Y android.hardware.drm@1.0::IDrmFactory/clearkey                                N/A        N/A    
+DM,FC Y android.hardware.drm@1.0::IDrmFactory/default                                 N/A        N/A    
+DM,FC Y android.hardware.drm@1.0::IDrmFactory/widevine                                N/A        N/A    
+DM,FC Y android.hardware.drm@1.1::ICryptoFactory/clearkey                             N/A        N/A    
+DM,FC Y android.hardware.drm@1.1::ICryptoFactory/widevine                             N/A        N/A    
+DM,FC Y android.hardware.drm@1.1::IDrmFactory/clearkey                                N/A        N/A    
+DM,FC Y android.hardware.drm@1.1::IDrmFactory/widevine                                N/A        N/A    
+DM,FC Y android.hardware.drm@1.2::ICryptoFactory/clearkey                             N/A        N/A    
+DM,FC Y android.hardware.drm@1.2::ICryptoFactory/widevine                             N/A        N/A    
+DM,FC Y android.hardware.drm@1.2::IDrmFactory/clearkey                                N/A        N/A    
+DM,FC Y android.hardware.drm@1.2::IDrmFactory/widevine                                N/A        N/A    
+DM,FC Y android.hardware.gatekeeper@1.0::IGatekeeper/default                          N/A        N/A    
+DM    Y android.hardware.gnss@1.0::IGnss/default                                      N/A        N/A    
+DM,FC Y android.hardware.gnss@1.1::IGnss/default                                      N/A        N/A    
+DM,FC Y android.hardware.gnss@2.0::IGnss/default                                      N/A        N/A    
+DM,FC Y android.hardware.graphics.allocator@2.0::IAllocator/default                   N/A        N/A    
+DM,FC Y android.hardware.graphics.composer@2.1::IComposer/default                     N/A        N/A    
+DM,FC Y android.hardware.health@2.0::IHealth/default                                  N/A        N/A    
+DM,FC Y android.hardware.keymaster@4.0::IKeymasterDevice/default                      N/A        N/A    
+DM,FC Y android.hardware.light@2.0::ILight/default                                    N/A        N/A    
+FM    Y android.hardware.media.c2@1.0::IComponentStore/software                       N/A        N/A    
+DM,FC Y android.hardware.media.omx@1.0::IOmx/default                                  N/A        N/A    
+DM,FC Y android.hardware.media.omx@1.0::IOmxStore/default                             N/A        N/A    
+DM,FC Y android.hardware.memtrack@1.0::IMemtrack/default                              N/A        N/A    
+DM,FC Y android.hardware.neuralnetworks@1.0::IDevice/cpunn                            N/A        N/A    
+DM,FC Y android.hardware.neuralnetworks@1.0::IDevice/gpunn                            N/A        N/A    
+DM,FC Y android.hardware.neuralnetworks@1.1::IDevice/cpunn                            N/A        N/A    
+DM,FC Y android.hardware.neuralnetworks@1.1::IDevice/gpunn                            N/A        N/A    
+DM,FC Y android.hardware.power@1.0::IPower/default                                    N/A        N/A    
+DM,FC Y android.hardware.power@1.1::IPower/default                                    N/A        N/A    
+DM,FC Y android.hardware.power@1.2::IPower/default                                    N/A        N/A    
+DM,FC Y android.hardware.power@1.3::IPower/default                                    N/A        N/A    
+DM    Y android.hardware.radio.config@1.0::IRadioConfig/default                       N/A        N/A    
+DM,FC Y android.hardware.radio.config@1.1::IRadioConfig/default                       N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/em1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/em2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/em3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/imsAospSlot1                               N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/imsAospSlot2                               N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/imsAospSlot3                               N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/se1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/se2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/se3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/slot1                                      N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/slot2                                      N/A        N/A    
+DM    Y android.hardware.radio@1.0::IRadio/slot3                                      N/A        N/A    
+DM    Y android.hardware.radio@1.0::ISap/slot1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.0::ISap/slot2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.0::ISap/slot3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/em1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/em2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/em3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/imsAospSlot1                               N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/imsAospSlot2                               N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/imsAospSlot3                               N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/se1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/se2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/se3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/slot1                                      N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/slot2                                      N/A        N/A    
+DM    Y android.hardware.radio@1.1::IRadio/slot3                                      N/A        N/A    
+DM    Y android.hardware.radio@1.1::ISap/slot1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.1::ISap/slot2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.1::ISap/slot3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/em1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/em2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/em3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/imsAospSlot1                               N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/imsAospSlot2                               N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/imsAospSlot3                               N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/se1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/se2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/se3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/slot1                                      N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/slot2                                      N/A        N/A    
+DM    Y android.hardware.radio@1.2::IRadio/slot3                                      N/A        N/A    
+DM,FC Y android.hardware.radio@1.2::ISap/slot1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.2::ISap/slot2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.2::ISap/slot3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/em1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/em2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/em3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/imsAospSlot1                               N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/imsAospSlot2                               N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/imsAospSlot3                               N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/se1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/se2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/se3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/slot1                                      N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/slot2                                      N/A        N/A    
+DM    Y android.hardware.radio@1.3::IRadio/slot3                                      N/A        N/A    
+DM    Y android.hardware.radio@1.4::IRadio/em1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.4::IRadio/em2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.4::IRadio/em3                                        N/A        N/A    
+DM    Y android.hardware.radio@1.4::IRadio/imsAospSlot1                               N/A        N/A    
+DM    Y android.hardware.radio@1.4::IRadio/imsAospSlot2                               N/A        N/A    
+DM    Y android.hardware.radio@1.4::IRadio/imsAospSlot3                               N/A        N/A    
+DM    Y android.hardware.radio@1.4::IRadio/se1                                        N/A        N/A    
+DM    Y android.hardware.radio@1.4::IRadio/se2                                        N/A        N/A    
+DM    Y android.hardware.radio@1.4::IRadio/se3                                        N/A        N/A    
+DM,FC Y android.hardware.radio@1.4::IRadio/slot1                                      N/A        N/A    
+DM,FC Y android.hardware.radio@1.4::IRadio/slot2                                      N/A        N/A    
+DM,FC Y android.hardware.radio@1.4::IRadio/slot3                                      N/A        N/A    
+DM,FC Y android.hardware.secure_element@1.0::ISecureElement/SIM1                      N/A        N/A    
+DM,FC Y android.hardware.secure_element@1.0::ISecureElement/SIM2                      N/A        N/A    
+DM,FC Y android.hardware.sensors@2.0::ISensors/default                                N/A        N/A    
+DM,FC Y android.hardware.soundtrigger@2.0::ISoundTriggerHw/default                    N/A        N/A    
+DM,FC Y android.hardware.soundtrigger@2.1::ISoundTriggerHw/default                    N/A        N/A    
+DM,FC Y android.hardware.soundtrigger@2.2::ISoundTriggerHw/default                    N/A        N/A    
+DM,FC Y android.hardware.thermal@1.0::IThermal/default                                N/A        N/A    
+DM,FC Y android.hardware.usb@1.0::IUsb/default                                        N/A        N/A    
+DM,FC Y android.hardware.usb@1.1::IUsb/default                                        N/A        N/A    
+DM,FC Y android.hardware.vibrator@1.0::IVibrator/default                              N/A        N/A    
+DM,FC Y android.hardware.wifi.supplicant@1.0::ISupplicant/default                     N/A        N/A    
+DM,FC Y android.hardware.wifi.supplicant@1.1::ISupplicant/default                     N/A        N/A    
+DM,FC Y android.hardware.wifi.supplicant@1.2::ISupplicant/default                     N/A        N/A    
+DM,FC Y android.hardware.wifi@1.0::IWifi/default                                      N/A        N/A    
+DM,FC Y android.hardware.wifi@1.1::IWifi/default                                      N/A        N/A    
+DM,FC Y android.hardware.wifi@1.2::IWifi/default                                      N/A        N/A    
+DM,FC Y android.hardware.wifi@1.3::IWifi/default                                      N/A        N/A    
+FM    Y android.hidl.allocator@1.0::IAllocator/ashmem                                 N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/AgpsDebugInterface                               N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/AgpsInterface                                    N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/OpImsRILd1                                       N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/OpImsRILd2                                       N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/OpImsRILd3                                       N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/SIM1                                             N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/SIM2                                             N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/ashmem                                           N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/clearkey                                         N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/cpunn                                            N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/default                                          N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/em1                                              N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/em2                                              N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/em3                                              N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/gpunn                                            N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/imsAospSlot1                                     N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/imsAospSlot2                                     N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/imsAospSlot3                                     N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/imsSlot1                                         N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/imsSlot2                                         N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/imsSlot3                                         N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/internal/0                                       N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkAssist1                                       N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkAssist2                                       N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkAssist3                                       N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkCap1                                          N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkCap2                                          N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkCap3                                          N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkEm1                                           N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkEm2                                           N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkEm3                                           N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkRcs1                                          N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkRcs2                                          N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkRcs3                                          N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkSe1                                           N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkSe2                                           N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkSe3                                           N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkSlot1                                         N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkSlot2                                         N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtkSlot3                                         N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_agps2framework                               N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_debugService2mnld                            N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_framework2agps                               N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_lbs_log_v2s                                  N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_lppe_socket_agps                             N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_lppe_socket_bt                               N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_lppe_socket_ipaddr                           N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_lppe_socket_lbs                              N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_lppe_socket_network                          N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_lppe_socket_sensor                           N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_lppe_socket_wlan                             N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_meta2mnld                                    N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_mnld2debugService                            N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_mnld2mtklogger                               N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_mnld2nlputils                                N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/mtk_mtklogger2mnld                               N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/se1                                              N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/se2                                              N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/se3                                              N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/slot1                                            N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/slot2                                            N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/slot3                                            N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/software                                         N/A        N/A    
+X     Y android.hidl.base@1.0::IBase/widevine                                         N/A        N/A    
+FM    Y android.hidl.manager@1.0::IServiceManager/default                             N/A        N/A    
+FM    Y android.hidl.manager@1.1::IServiceManager/default                             N/A        N/A    
+FM    Y android.hidl.manager@1.2::IServiceManager/default                             N/A        N/A    
+FM    Y android.hidl.token@1.0::ITokenManager/default                                 N/A        N/A    
+FM    Y android.system.net.netd@1.0::INetd/default                                    N/A        N/A    
+FM    Y android.system.net.netd@1.1::INetd/default                                    N/A        N/A    
+FM    Y android.system.suspend@1.0::ISystemSuspend/default                            N/A        N/A    
+FM    Y android.system.wifi.keystore@1.0::IKeystore/default                           N/A        N/A    
+DM    Y vendor.fpsensor.hardware.fpsensorhidlsvc@2.0::IFpsensorHidlSvc/default        N/A        N/A    
+DM    Y vendor.mediatek.hardware.atci@1.0::IAtcid/default                             N/A        N/A    
+DM    Y vendor.mediatek.hardware.camera.bgservice@1.0::IBGService/internal/0          N/A        N/A    
+DM    Y vendor.mediatek.hardware.camera.bgservice@1.1::IBGService/internal/0          N/A        N/A    
+DM    Y vendor.mediatek.hardware.dfps@1.0::IFpsPolicyService/default                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.gpu@1.0::IGraphicExt/default                         N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/AgpsDebugInterface                     N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/AgpsInterface                          N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_agps2framework                     N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_debugService2mnld                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_framework2agps                     N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_lbs_log_v2s                        N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_lppe_socket_agps                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_lppe_socket_bt                     N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_lppe_socket_ipaddr                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_lppe_socket_lbs                    N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_lppe_socket_network                N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_lppe_socket_sensor                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_lppe_socket_wlan                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_meta2mnld                          N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_mnld2debugService                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_mnld2mtklogger                     N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_mnld2nlputils                      N/A        N/A    
+DM    Y vendor.mediatek.hardware.lbs@1.0::ILbs/mtk_mtklogger2mnld                     N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkpower@1.0::IMtkPerf/default                       N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkpower@1.0::IMtkPower/default                      N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/imsSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/imsSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/imsSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkAssist1               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkAssist2               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkAssist3               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkCap1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkCap2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkCap3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkEm1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkEm2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkEm3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkRcs1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkRcs2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkRcs3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkSe1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkSe2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkSe3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.0::IMtkRadioEx/mtkSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/imsSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/imsSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/imsSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkAssist1               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkAssist2               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkAssist3               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkCap1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkCap2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkCap3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkEm1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkEm2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkEm3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkRcs1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkRcs2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkRcs3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkSe1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkSe2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkSe3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.1::IMtkRadioEx/mtkSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/imsSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/imsSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/imsSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkAssist1               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkAssist2               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkAssist3               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkCap1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkCap2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkCap3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkEm1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkEm2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkEm3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkRcs1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkRcs2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkRcs3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkSe1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkSe2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkSe3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.2::IMtkRadioEx/mtkSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/imsSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/imsSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/imsSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkAssist1               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkAssist2               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkAssist3               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkCap1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkCap2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkCap3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkEm1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkEm2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkEm3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkRcs1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkRcs2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkRcs3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkSe1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkSe2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkSe3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.3::IMtkRadioEx/mtkSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/imsSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/imsSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/imsSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkAssist1               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkAssist2               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkAssist3               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkCap1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkCap2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkCap3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkEm1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkEm2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkEm3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkRcs1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkRcs2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkRcs3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkSe1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkSe2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkSe3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.4::IMtkRadioEx/mtkSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/imsSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/imsSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/imsSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkAssist1               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkAssist2               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkAssist3               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkCap1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkCap2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkCap3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkEm1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkEm2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkEm3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkRcs1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkRcs2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkRcs3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkSe1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkSe2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkSe3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.5::IMtkRadioEx/mtkSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/imsSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/imsSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/imsSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkAssist1               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkAssist2               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkAssist3               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkCap1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkCap2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkCap3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkEm1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkEm2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkEm3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkRcs1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkRcs2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkRcs3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkSe1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkSe2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkSe3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.6::IMtkRadioEx/mtkSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/imsSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/imsSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/imsSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkAssist1               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkAssist2               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkAssist3               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkCap1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkCap2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkCap3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkEm1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkEm2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkEm3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkRcs1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkRcs2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkRcs3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkSe1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkSe2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkSe3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.7::IMtkRadioEx/mtkSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/imsSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/imsSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/imsSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkAssist1               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkAssist2               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkAssist3               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkCap1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkCap2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkCap3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkEm1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkEm2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkEm3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkRcs1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkRcs2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkRcs3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkSe1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkSe2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkSe3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.8::IMtkRadioEx/mtkSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/imsSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/imsSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/imsSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkAssist1               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkAssist2               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkAssist3               N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkCap1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkCap2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkCap3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkEm1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkEm2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkEm3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkRcs1                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkRcs2                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkRcs3                  N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkSe1                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkSe2                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkSe3                   N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkSlot1                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkSlot2                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.mtkradioex@1.9::IMtkRadioEx/mtkSlot3                 N/A        N/A    
+DM    Y vendor.mediatek.hardware.netdagent@1.0::INetdagent/default                    N/A        N/A    
+DM    Y vendor.mediatek.hardware.nvram@1.0::INvram/default                            N/A        N/A    
+DM    Y vendor.mediatek.hardware.nvram@1.1::INvram/default                            N/A        N/A    
+DM    Y vendor.mediatek.hardware.nwk_opt@1.0::INwkOpt/default                         N/A        N/A    
+DM    Y vendor.mediatek.hardware.power@2.0::IPower/default                            N/A        N/A    
+DM    Y vendor.mediatek.hardware.power@2.1::IPower/default                            N/A        N/A    
+DM    Y vendor.mediatek.hardware.pplagent@1.0::IPplAgent/default                      N/A        N/A    
+DM    Y vendor.mediatek.hardware.pq@2.0::IPictureQuality/default                      N/A        N/A    
+DM    Y vendor.mediatek.hardware.pq@2.1::IPictureQuality/default                      N/A        N/A    
+DM    Y vendor.mediatek.hardware.pq@2.2::IPictureQuality/default                      N/A        N/A    
+DM    Y vendor.mediatek.hardware.pq@2.3::IPictureQuality/default                      N/A        N/A    
+DM    Y vendor.mediatek.hardware.radio_op@2.0::IRadioOp/OpImsRILd1                    N/A        N/A    
+DM    Y vendor.mediatek.hardware.radio_op@2.0::IRadioOp/OpImsRILd2                    N/A        N/A    
+DM    Y vendor.mediatek.hardware.radio_op@2.0::IRadioOp/OpImsRILd3                    N/A        N/A    
+DM    Y vendor.mediatek.hardware.radio_op@2.0::IRadioOp/slot1                         N/A        N/A    
+DM    Y vendor.mediatek.hardware.radio_op@2.0::IRadioOp/slot2                         N/A        N/A    
+DM    Y vendor.mediatek.hardware.radio_op@2.0::IRadioOp/slot3                         N/A        N/A    
+DM    Y vendor.mediatek.hardware.videotelephony@1.0::IVideoTelephony/default          N/A        N/A    
+DM    Y vendor.mediatek.hardware.wifi.supplicant@2.0::ISupplicant/default             N/A        N/A    
+DM    Y vendor.microtrust.hardware.capi@2.0::IClientApiDevice/default                 N/A        N/A    
+DM    Y vendor.sw.swfingerprint@1.0::ISwfingerprint/default                           N/A        N/A    
+DM    Y vendor.transsion.hardware.rm@1.0::IResMonitor/default                         N/A        N/A    
+DM    Y vendor.transsion.hardware.trancam.trancamserver@1.0::ITrancam/default         N/A        N/A    
+DM    Y vendor.transsion.hardware.tranlog@1.0::ITranLog/default                       N/A        N/A    
+DM    Y vendor.transsion.hardware.tranlogconfig@1.0::ITranLogConfig/default           N/A        N/A    
+
+| All interfaces that getService() has ever returned as a passthrough interface;
+| PIDs / processes shown below might be inaccurate because the process
+| might have relinquished the interface or might have died.
+| The Server / Server CMD column can be ignored.
+| The Clients / Clients CMD column shows all process that have ever dlopen'ed 
+| the library and successfully fetched the passthrough implementation.
+VINTF R Interface                                                                     Thread Use Server Clients
+FC    ? android.hardware.audio.effect@5.0::IEffectsFactory/default                    N/A        515    515
+FC    ? android.hardware.audio@5.0::IDevicesFactory/default                           N/A        515    515
+FC    ? android.hardware.bluetooth.audio@2.0::IBluetoothAudioProvidersFactory/default N/A        515    515
+FC    ? android.hardware.bluetooth@1.0::IBluetoothHci/default                         N/A        516    516
+FC    ? android.hardware.camera.provider@2.4::ICameraProvider/internal/0              N/A        742    742
+FC    ? android.hardware.drm@1.0::ICryptoFactory/default                              N/A        519    519
+FC    ? android.hardware.drm@1.0::IDrmFactory/default                                 N/A        519    519
+FC    ? android.hardware.gatekeeper@1.0::IGatekeeper/default                          N/A        522    522
+FC    ? android.hardware.gnss@2.0::IGnss/default                                      N/A        523    523
+FC    ? android.hardware.graphics.allocator@2.0::IAllocator/default                   N/A        524    524
+FC    ? android.hardware.graphics.composer@2.1::IComposer/default                     N/A        525    525
+DM,FC ? android.hardware.graphics.mapper@2.1::IMapper/default                         N/A        N/A    525 558 742 1267 1625 1889 3057 3699 7354 10002 10544
+FC    ? android.hardware.light@2.0::ILight/default                                    N/A        527    527
+FC    ? android.hardware.memtrack@1.0::IMemtrack/default                              N/A        528    528
+FC    ? android.hardware.power@1.3::IPower/default                                    N/A        543    543
+DM,FC ? android.hardware.renderscript@1.0::IDevice/default                            N/A        N/A    1625
+FC    ? android.hardware.soundtrigger@2.2::ISoundTriggerHw/default                    N/A        515    515
+FC    ? android.hardware.thermal@1.0::IThermal/default                                N/A        535    535
+FC    ? android.hardware.vibrator@1.0::IVibrator/default                              N/A        537    537
+FM    ? android.hidl.memory@1.0::IMapper/ashmem                                       N/A        N/A    515 525 553 723 761
+X     ? vendor.mediatek.hardware.camera.bgservice@1.1::IBGService/internal/0          N/A        742    742
+X     ? vendor.mediatek.hardware.dfps@1.0::IFpsPolicyService/default                  N/A        541    541
+X     ? vendor.mediatek.hardware.mtkcodecservice@1.1::IMtkCodecService/default        N/A        1429   
+X     ? vendor.mediatek.hardware.mtkpower@1.0::IMtkPerf/default                       N/A        543    543
+X     ? vendor.mediatek.hardware.mtkpower@1.0::IMtkPower/default                      N/A        543    543
+X     ? vendor.mediatek.hardware.nvram@1.1::INvram/default                            N/A        544    544
+X     ? vendor.mediatek.hardware.power@2.1::IPower/default                            N/A        543    543
+X     ? vendor.mediatek.hardware.pq@2.3::IPictureQuality/default                      N/A        761    761
+X     ? vendor.mediatek.hardware.videotelephony@1.0::IVideoTelephony/default          N/A        538    538
+X     ? vendor.sw.swfingerprint@1.0::ISwfingerprint/default                           N/A        817    817
+
+| All available passthrough implementations (all -impl.so files).
+| These may return subclasses through their respective HIDL_FETCH_I* functions.
+VINTF R Interface                                                                    Thread Use Server Clients
+FC    ? android.hardware.audio.effect@5.0::I*/* (/vendor/lib/hw/)                    N/A        N/A    515
+FC    ? android.hardware.audio.effect@5.0::I*/* (/vendor/lib64/hw/)                  N/A        N/A    
+FC    ? android.hardware.audio@5.0::I*/* (/vendor/lib/hw/) (-mediatek)               N/A        N/A    515
+FC    ? android.hardware.audio@5.0::I*/* (/vendor/lib64/hw/) (-mediatek)             N/A        N/A    
+FC    ? android.hardware.bluetooth.audio@2.0::I*/* (/vendor/lib/hw/) (-mediatek)     N/A        N/A    515
+FC    ? android.hardware.bluetooth.audio@2.0::I*/* (/vendor/lib64/hw/) (-mediatek)   N/A        N/A    
+FC    ? android.hardware.bluetooth@1.0::I*/* (/vendor/lib/hw/) (-mediatek)           N/A        N/A    
+FC    ? android.hardware.bluetooth@1.0::I*/* (/vendor/lib64/hw/) (-mediatek)         N/A        N/A    516
+FC    ? android.hardware.camera.provider@2.4::I*/* (/vendor/lib64/hw/) (-mediatek)   N/A        N/A    742
+FC    ? android.hardware.drm@1.0::I*/* (/vendor/lib/hw/)                             N/A        N/A    519
+FC    ? android.hardware.gatekeeper@1.0::I*/* (/vendor/lib/hw/)                      N/A        N/A    
+FC    ? android.hardware.gatekeeper@1.0::I*/* (/vendor/lib64/hw/)                    N/A        N/A    522
+FC    ? android.hardware.gnss@2.0::I*/* (/vendor/lib64/hw/) (-mediatek)              N/A        N/A    523
+FC    ? android.hardware.graphics.allocator@2.0::I*/* (/vendor/lib/hw/)              N/A        N/A    
+FC    ? android.hardware.graphics.allocator@2.0::I*/* (/vendor/lib64/hw/)            N/A        N/A    524
+FC    ? android.hardware.graphics.composer@2.1::I*/* (/vendor/lib/hw/)               N/A        N/A    
+FC    ? android.hardware.graphics.composer@2.1::I*/* (/vendor/lib64/hw/)             N/A        N/A    525
+DM    ? android.hardware.graphics.mapper@2.0::I*/* (/vendor/lib/hw/) (-2.1)          N/A        N/A    512
+DM    ? android.hardware.graphics.mapper@2.0::I*/* (/vendor/lib64/hw/) (-2.1)        N/A        N/A    511 525 558 742 1267 1625 1705 1730 1747 1779 1854 1889 2165 2230 2439 2511 2540 3057 3543 3699 5963 6237 7354 8054 8146 8202 8318 8522 8614 8963 10002 10264 10364 10544 10718
+FC    ? android.hardware.light@2.0::I*/* (/vendor/lib/hw/) (-mediatek)               N/A        N/A    
+FC    ? android.hardware.light@2.0::I*/* (/vendor/lib64/hw/) (-mediatek)             N/A        N/A    527
+FC    ? android.hardware.memtrack@1.0::I*/* (/vendor/lib/hw/)                        N/A        N/A    
+FC    ? android.hardware.memtrack@1.0::I*/* (/vendor/lib64/hw/)                      N/A        N/A    528
+FC    ? android.hardware.power@1.3::I*/* (/vendor/lib/hw/) (-mediatek)               N/A        N/A    
+FC    ? android.hardware.power@1.3::I*/* (/vendor/lib64/hw/) (-mediatek)             N/A        N/A    543
+DM,FC ? android.hardware.renderscript@1.0::I*/* (/vendor/lib/hw/)                    N/A        N/A    
+DM,FC ? android.hardware.renderscript@1.0::I*/* (/vendor/lib64/hw/)                  N/A        N/A    1625
+FC    ? android.hardware.soundtrigger@2.2::I*/* (/vendor/lib/hw/)                    N/A        N/A    515
+FC    ? android.hardware.soundtrigger@2.2::I*/* (/vendor/lib64/hw/)                  N/A        N/A    
+FC    ? android.hardware.thermal@1.0::I*/* (/vendor/lib/hw/)                         N/A        N/A    
+FC    ? android.hardware.thermal@1.0::I*/* (/vendor/lib64/hw/)                       N/A        N/A    535
+FC    ? android.hardware.vibrator@1.0::I*/* (/vendor/lib/hw/)                        N/A        N/A    
+FC    ? android.hardware.vibrator@1.0::I*/* (/vendor/lib64/hw/)                      N/A        N/A    537
+FM    ? android.hidl.memory@1.0::I*/* (/system/lib/hw/)                              N/A        N/A    
+FM    ? android.hidl.memory@1.0::I*/* (/system/lib/vndk-sp-29/hw/)                   N/A        N/A    515 723
+FM    ? android.hidl.memory@1.0::I*/* (/system/lib64/hw/)                            N/A        N/A    
+FM    ? android.hidl.memory@1.0::I*/* (/system/lib64/vndk-sp-29/hw/)                 N/A        N/A    525 553 761
+X     ? vendor.mediatek.hardware.camera.bgservice@1.1::I*/* (/vendor/lib/hw/)        N/A        N/A    
+X     ? vendor.mediatek.hardware.camera.bgservice@1.1::I*/* (/vendor/lib64/hw/)      N/A        N/A    742
+X     ? vendor.mediatek.hardware.camera.lomoeffect@1.0::I*/* (/vendor/lib64/hw/)     N/A        N/A    
+X     ? vendor.mediatek.hardware.dfps@1.0::I*/* (/vendor/lib/hw/)                    N/A        N/A    
+X     ? vendor.mediatek.hardware.dfps@1.0::I*/* (/vendor/lib64/hw/)                  N/A        N/A    541
+X     ? vendor.mediatek.hardware.keymaster_attestation@1.1::I*/* (/vendor/lib/hw/)   N/A        N/A    
+X     ? vendor.mediatek.hardware.keymaster_attestation@1.1::I*/* (/vendor/lib64/hw/) N/A        N/A    
+X     ? vendor.mediatek.hardware.mms@1.5::I*/* (/vendor/lib/hw/)                     N/A        N/A    
+X     ? vendor.mediatek.hardware.mms@1.5::I*/* (/vendor/lib64/hw/)                   N/A        N/A    
+X     ? vendor.mediatek.hardware.mtkcodecservice@1.1::I*/* (/vendor/lib/hw/)         N/A        N/A    
+X     ? vendor.mediatek.hardware.mtkcodecservice@1.1::I*/* (/vendor/lib64/hw/)       N/A        N/A    
+X     ? vendor.mediatek.hardware.mtkpower@1.0::I*/* (/vendor/lib/hw/)                N/A        N/A    
+X     ? vendor.mediatek.hardware.mtkpower@1.0::I*/* (/vendor/lib64/hw/)              N/A        N/A    543
+X     ? vendor.mediatek.hardware.nvram@1.1::I*/* (/vendor/lib/hw/)                   N/A        N/A    
+X     ? vendor.mediatek.hardware.nvram@1.1::I*/* (/vendor/lib64/hw/)                 N/A        N/A    544
+X     ? vendor.mediatek.hardware.power@2.1::I*/* (/vendor/lib/hw/)                   N/A        N/A    
+X     ? vendor.mediatek.hardware.power@2.1::I*/* (/vendor/lib64/hw/)                 N/A        N/A    543
+X     ? vendor.mediatek.hardware.pq@2.3::I*/* (/vendor/lib/hw/)                      N/A        N/A    
+X     ? vendor.mediatek.hardware.pq@2.3::I*/* (/vendor/lib64/hw/)                    N/A        N/A    761
+X     ? vendor.mediatek.hardware.videotelephony@1.0::I*/* (/vendor/lib/hw/)          N/A        N/A    538
+X     ? vendor.mediatek.hardware.videotelephony@1.0::I*/* (/vendor/lib64/hw/)        N/A        N/A    
+X     ? vendor.sw.swfingerprint@1.0::I*/* (/vendor/lib/hw/)                          N/A        N/A    817
+

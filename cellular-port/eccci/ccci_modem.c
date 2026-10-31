@@ -1659,6 +1659,10 @@ static unsigned int get_booting_start_id(struct ccci_modem *md)
 	return booting_start_id;
 }
 
+static int md_feature_force_min;
+module_param(md_feature_force_min, int, 0644);
+MODULE_PARM_DESC(md_feature_force_min, "Force all optional AP runtime features to NOT_SUPPORT (debug)");
+
 static void config_ap_side_feature(struct ccci_modem *md,
 	struct md_query_ap_feature *md_feature)
 {
@@ -1759,7 +1763,11 @@ static void config_ap_side_feature(struct ccci_modem *md,
 
 #if (MD_GENERATION >= 6293)
 	/* notice: CCB_SHARE_MEMORY should be set to support
-	 * when at least one CCB region exists
+	 * when at least one CCB region exists.
+	 *
+	 * Restored to the vendor default (MUST_SUPPORT).  It was
+	 * temporarily disabled during the CCB experiment; the vendor
+	 * mt6768 configuration always advertises both CCB and DHL_RAW.
 	 */
 	md_feature->feature_set[CCB_SHARE_MEMORY].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
@@ -1907,6 +1915,20 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	md_feature->feature_set[MD_MEM_AP_VIEW_INF].support_mask =
 		CCCI_FEATURE_OPTIONAL_SUPPORT;
 #endif
+
+	if (md_feature_force_min) {
+		int i;
+
+		for (i = BOOT_INFO + 1; i < FEATURE_COUNT; i++) {
+			if (md_feature->feature_set[i].support_mask !=
+			    CCCI_FEATURE_NOT_EXIST)
+				md_feature->feature_set[i].support_mask =
+					CCCI_FEATURE_NOT_SUPPORT;
+		}
+		md_feature->feature_set[BOOT_INFO].support_mask =
+			CCCI_FEATURE_MUST_SUPPORT;
+		pr_info("[ccci1/mcd] runtime features forced to BOOT_INFO only\n");
+	}
 }
 
 unsigned int align_to_2_power(unsigned int n)
@@ -2054,6 +2076,22 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 
 	md_feature = (struct md_query_ap_feature *)(data +
 				sizeof(struct ccci_header));
+
+	/* DEBUG: what the MD asks the AP for, verbatim */
+	pr_info("[ccci1/mcd] HS1 query: head=0x%x tail=0x%x sizeof=%zu\n",
+		md_feature->head_pattern, md_feature->tail_pattern,
+		sizeof(struct md_query_ap_feature));
+	for (i = 0; i < FEATURE_COUNT; i++) {
+		if (md_feature->feature_set[i].support_mask ==
+		    CCCI_FEATURE_NOT_EXIST)
+			continue;
+		pr_info("[ccci1/mcd] HS1 MD feat[%u]: mask=%u ver=%u\n", i,
+			md_feature->feature_set[i].support_mask,
+			md_feature->feature_set[i].version);
+	}
+	pr_info("[ccci1/mcd] HS1 sizes: ap_v2=%zu ap_v21=%zu\n",
+		sizeof(struct ap_query_md_feature),
+		sizeof(struct ap_query_md_feature_v2_1));
 
 	if (md_feature->head_pattern != MD_FEATURE_QUERY_PATTERN ||
 	    md_feature->tail_pattern != MD_FEATURE_QUERY_PATTERN) {
@@ -2298,9 +2336,11 @@ int ccci_md_prepare_runtime_data(unsigned char md_id, unsigned char *data,
 			case MISC_INFO_CCCI:
 				rt_feature.data_len =
 				sizeof(struct ccci_misc_info_element);
-				/* sequence check */
+				/* vendor default: bit0 = sequence check,
+				 * bit1 = poll MD status.  This was forced to
+				 * 0 during an experiment; restore it.
+				 */
 				rt_f_element.feature[0] |= (1 << 0);
-				/* polling MD status */
 				rt_f_element.feature[0] |= (1 << 1);
 				append_runtime_feature(&rt_data,
 				&rt_feature, &rt_f_element);

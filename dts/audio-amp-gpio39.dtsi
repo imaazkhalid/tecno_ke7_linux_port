@@ -1,0 +1,72 @@
+/*
+ * TECNO Spark 6 (KE7) — speaker amplifier on GPIO 39
+ *
+ * Vendor evidence (vendor.dts):
+ *
+ *     tran_audio {
+ *         compatible = "tran_audio,audio";
+ *         extamp_gpio          = <&pio 0x27 0x00>;   // GPIO 39
+ *         extamp_mode          = <2>;
+ *         extamp_speech_mode   = <2>;
+ *         real_2in1_receiver_mode = <6>;
+ *     };
+ *
+ * So the loudspeaker is behind a GPIO-gated amplifier: **GPIO 39 must be
+ * asserted** or you only get the earpiece. This is the classic "no sound on
+ * Linux" cause on Transsion devices.
+ *
+ * Codec itself: MT6358 (mediatek,mt6358-sound) on the MT6768 AFE
+ * (sound = "mediatek,mt6768-mt6358-sound").
+ */
+
+/* ---- device tree ------------------------------------------------------ */
+
+/ {
+	spk_amp: regulator-spk-amp {
+		compatible = "regulator-fixed";
+		regulator-name = "speaker-amp";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		/* GPIO 39, active high (vendor: extamp_mode = 2) */
+		gpio = <&pio 39 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		/* keep it off until a stream starts */
+		regulator-boot-on;
+		regulator-always-on;   /* simplest: leave the amp enabled */
+		startup-delay-us = <1000>;
+	};
+};
+
+&sound {
+	compatible = "mediatek,mt6768-mt6358-sound";
+	/* wire the amp so ASoC enables it around playback */
+	spk-amp-supply = <&spk_amp>;
+	status = "okay";
+};
+
+/* ---- machine driver hook (if you prefer explicit control) -------------
+ *
+ * If you do NOT want the amp always-on, drop regulator-always-on and toggle it
+ * from the card's DAPM/ops instead:
+ *
+ * static int ke7_spk_event(struct snd_soc_dapm_widget *w,
+ *                          struct snd_kcontrol *k, int event)
+ * {
+ *         struct regulator *amp = w->dapm->card->dev->platform_data; // or your own
+ *         if (SND_SOC_DAPM_EVENT_ON(event))
+ *                 return regulator_enable(amp);
+ *         return regulator_disable(amp);
+ * }
+ *
+ * static const struct snd_soc_dapm_widget ke7_widgets[] = {
+ *         SND_SOC_DAPM_SUPPLY("SPK_AMP", SND_SOC_NOPM, 0, 0,
+ *                             ke7_spk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+ * };
+ *
+ * ...and route "Speaker" through SPK_AMP in the widget route table.
+ *
+ * Quick test without any driver change:
+ *     gpioset <gpiochip> 39=1        # amp on
+ *     aplay -D hw:0,0 test.wav
+ * If the speaker comes alive, the pin and polarity are right.
+ */

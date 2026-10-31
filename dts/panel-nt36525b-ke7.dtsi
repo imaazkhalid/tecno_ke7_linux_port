@@ -1,0 +1,84 @@
+/*
+ * TECNO Spark 6 (KE7) — Novatek NT36525B panel
+ *
+ * Reconstructed from the vendor device tree + LK LCM driver name:
+ *   LCM: nt36525b_hdp_dsi_vdo_txd_boe_ke7
+ *   Novatek NT36525B controller, HD+ 720x1640, DSI *video* mode
+ *   (vendor kernel reports BURST_VDO_MODE, high-speed), TXD panel / BOE glass.
+ *
+ * Verified facts (from vendor.dts, dumpsys display, debugfs):
+ *   - active area            720 x 1640
+ *   - refresh                60 Hz  (SurfaceFlinger VSYNC period 16666667 ns)
+ *   - DSI mode               BURST video mode, high speed, continuous clock off
+ *   - DSI clock (burst)      228,499,954 Hz  (mm_dsi0 in clk_summary)
+ *   - reset GPIO             45   (pinmux 0x2d00)
+ *   - bias enable positive   153  (pinmux 0x9900, ENP)
+ *   - bias enable negative   152  (pinmux 0x9800, ENN)
+ *   - backlight              OCP2130 i2c LED driver, led_mode = 5
+ *                            (/sys/class/leds/lcd-backlight, 0..255)
+ *
+ * STILL MISSING: the exact porch values (hsa/hbp/hfp/vsa/vbp/vfp) and the pixel
+ * clock. They live in the LK LCM driver (lk.img, driver name string at 0x8CDEE)
+ * and are passed to the kernel via atag,videolfb. Extract by disassembling the
+ * LCM driver in lk.img, or read the DSI timing registers while the panel is up.
+ * Until then the panel is unlikely to lock reliably.
+ */
+
+&dsi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	panel@0 {
+		compatible = "novatek,nt36525b-ke7";
+		reg = <0>;
+
+		/* verified GPIOs */
+		reset-gpios = <&pio 45 GPIO_ACTIVE_LOW>;
+		/* bias rails are GPIO-switched, not regulators on this board:
+		 * ENP = gpio 153 (active high), ENN = gpio 152 (active high).
+		 * Model them as two fixed regulators with enable-gpios, or
+		 * drive them from the panel driver.
+		 */
+		vddi-supply = <&mt6358_vcn18_reg>;
+		/* vddi / avdd are not individually routed on KE7; the panel is
+		 * powered from the always-on rails and gated by the bias GPIOs. */
+
+		backlight = <&backlight>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi0_out>;
+			};
+		};
+
+		display-timings {
+			native-mode = <&nt36525b_timing>;
+
+			nt36525b_timing: timing0 {
+				/* TODO: fill from the LK LCM driver */
+				clock-frequency = <78000000>;   /* placeholder ~78 MHz */
+				hactive = <720>;
+				vactive = <1640>;
+
+				hfront-porch = <40>;   /* TODO */
+				hback-porch  = <40>;   /* TODO */
+				hsync-len    = <20>;   /* TODO */
+
+				vfront-porch = <20>;   /* TODO */
+				vback-porch  = <20>;   /* TODO */
+				vsync-len    = <2>;    /* TODO */
+
+				hsync-active = <0>;
+				vsync-active = <0>;
+				de-active    = <1>;
+				pixelclk-active = <0>;
+			};
+		};
+	};
+};
+
+&dsi0_out {
+	remote-endpoint = <&panel_in>;
+	data-lanes = <0 1 2 3>;     /* verify lane count (vendor dump printed "Lane Num:7") */
+};

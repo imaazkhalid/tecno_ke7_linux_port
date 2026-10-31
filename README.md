@@ -1,111 +1,190 @@
-# Tecno Spark 6 (Model KE7 / KE7 JS1) — Arch Linux ARM & Bare-Metal Porting Project
+# Tecno Spark 6 (KE7) — Mainline Linux Port
 
-A reproducible, fully documented reverse-engineering and bring-up effort to port **Arch Linux ARM / Mainline Linux** to the **Tecno Spark 6 (KE7)** from a completely wiped, bare-metal state.
+> Turning a bricked 2020 budget MediaTek phone into a fully documented, pocket-sized
+> Arch Linux ARM computer — and writing down every dead end along the way.
+
+![status](https://img.shields.io/badge/boot-U--Boot%20%E2%86%92%20systemd--boot%20%E2%86%92%20Linux-brightgreen)
+![status](https://img.shields.io/badge/userspace-Arch%20Linux%20ARM%20%2B%20Phosh-blue)
+![status](https://img.shields.io/badge/modem-work%20in%20progress-orange)
+![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 ---
 
-## 1. Hardware Architecture & Specifications
+## Why this exists
 
-| Component | Specification | Details / Identifiers |
+The **Tecno Spark 6 (KE7)** is a 2020 budget phone built on the MediaTek **Helio G70
+(MT6768)**. It shipped with Android 10, never received meaningful updates, and is now
+end-of-life. This project documents, step by step, how to:
+
+1. Recover one from a **completely wiped state** (all NVRAM/protect partitions zeroed,
+   no IMEI, no calibration data).
+2. Replace Android with **mainline Linux 6.18 + Arch Linux ARM + GNOME Phosh**.
+3. Bring up the hardware one block at a time — display, touch, charging, USB
+   networking, modem — using nothing but public sources, the device itself, and a
+   lot of reverse engineering.
+
+Everything here is reproducible. If you own a KE7 — or any MT6768 device — you should
+be able to follow the same path, avoid our dead ends, and reuse the tooling.
+
+**This is a work-in-progress port, not a finished product.** The status table below is
+kept honest.
+
+---
+
+## Status
+
+| Subsystem | State | Notes |
 |---|---|---|
-| **Device Model** | Tecno Spark 6 | Model `KE7` (Hardware string on SIM tray: `KE7 JS1`) |
-| **System-on-Chip** | MediaTek Helio G70 | `MT6769V/CB` (`k68v1` / `MT6768` platform family, HW Code `0x707`) |
-| **CPU Subsystem** | Octa-Core (ARMv8.2-A 64-bit) | 2× Cortex-A75 @ 2.0 GHz + 6× Cortex-A55 @ 1.7 GHz |
-| **GPU** | ARM Mali-G52 2EEMC2 | Panfrost compatible (`mediatek,mt8186-mali` / `0x13040000`) |
-| **RAM (LPDDR4X)** | 4 GB | Physical base: `0x40000000` |
-| **Storage (eMMC 5.1)** | 64 GB | Total sectors: `0x0747c000` (62.5 GiB / 67.1 GB) |
-| **Display Panel** | 6.8" IPS LCD (720 × 1640 HD+) | MIPI DSI Video Mode (`ft8006s_hdp_dsi_vdo_hx_mdt_ke7` or `nt36525b_hdp_dsi_vdo_txd_boe_ke7`) |
-| **Touch Controller** | SPI / I2C Digitizer | Novatek `nt36672a` / FocalTech |
-| **PMIC** | MediaTek MT6358 | Regulates LCM power rails (VSP/VSN ±5V) and backlight boost |
+| Boot chain (BROM → preloader → LK → U-Boot → systemd-boot → Linux) | ✅ working | U-Boot UEFI payload packed into the `boot` partition |
+| Arch Linux ARM (aarch64) + GNOME Phosh | ✅ working | pure 64-bit userspace, `systemd-boot` entries |
+| Display | ✅ working (SimpleFB) | 720×1640 panel up; mainline DRM/DSI driver still on the roadmap |
+| Touchscreen | ✅ working | Novatek NVT-ts SPI (`mtk-tpd`, `event3`) |
+| USB gadget networking | ✅ working | `usb0` 172.16.42.2/24, SSH + HTTP proxy over USB |
+| Charging during gadget mode | ✅ working | RT9471 at 1.5 A while USB data is active |
+| Battery reporting | ✅ working | MT6358 + RT9471 `power_supply` link |
+| GPU | ⚠️ software rendering | Panfrost works, not yet wired into the mainline DT |
+| Wi-Fi / Bluetooth (MT6631 CONNSYS) | 🚧 in progress | vendor driver port underway; `wlan0` not yet stable |
+| Cellular modem (MT6768 CCCI) | 🚧 in progress | driver ported to 6.18; blocked on a gated MD EINT clock (fix built, not yet flashed) |
+| Audio (MT6358 + GPIO 39 amp) | ⬜ planned | amplifier GPIO already identified |
+| Camera (GC02M1 / OV02B10) | ⬜ planned | both sub-sensors have mainline drivers |
+| Sensors (via SCP) | ⬜ planned | chips live behind the closed SCP firmware |
+
+Legend: ✅ works · 🚧 actively worked on · ⬜ not started
 
 ---
 
-## 2. Low-Level Boot Flow
+## The story in one diagram
 
 ```mermaid
 flowchart TD
-    A["SoC Silicon BootROM (BROM) [0e8d:0003]"] -->|Checks eMMC boot0/boot1| B{"Valid Preloader?"}
-    B -->|No / Corrupted| C["BROM USB Download Mode [0e8d:0003] (Watchdog loop)"]
-    B -->|Yes| D["Preloader Stage [0e8d:2000]"]
-    D -->|Initializes EMI/DRAM & Clocks| E{"Valid Little Kernel (lk) in GPT?"}
-    E -->|Empty / Zeroed| F["Reset / Bootloop"]
-    E -->|Valid| G["Little Kernel (lk / lk2)"]
-    G -->|Initializes MIPI DSI, Framebuffer, Backlight| H["Display Logo / Splash Screen"]
-    G -->|Volume Up held| I["Fastboot Mode / Recovery"]
-    G -->|Normal Boot| J["Linux Kernel (boot.img at 0x40080000)"]
-    J --> K["Arch Linux ARM RootFS (eMMC / MicroSD)"]
-    
-    C -->|Kamakiri SLA/DAA Bypass Payload| L["SRAM Execution (0x100a00 / 0x201000)"]
-    L --> M["Download Agent (DA) loaded into DRAM"]
-    M --> N["Arbitrary Flash Read/Write & Hardware Control via mtkclient"]
+    BROM["SoC BootROM<br/>0e8d:0003"] --> PRE["Preloader<br/>eMMC boot0"]
+    PRE --> LK["Little Kernel (LK)<br/>partition p27"]
+    LK --> UBOOT["U-Boot (UEFI)<br/>packed in boot p30"]
+    UBOOT --> SDBOOT["systemd-boot<br/>ESP p40"]
+    SDBOOT --> LINUX["Mainline Linux 6.18<br/>+ Arch Linux ARM"]
+    LINUX --> PHOSH["GNOME Phosh"]
+    LINUX -.-> MODEM["MT6768 modem<br/>CCCI / CLDMA"]
+
+    subgraph Recovery
+      BROM -.USB.-> MTK["mtkclient / BROM exploits"]
+      MTK -.flash.-> PRE
+    end
+```
+
+Full boot-chain detail: [`docs/boot-chain.md`](docs/boot-chain.md)
+
+---
+
+## Hardware at a glance
+
+| | |
+|---|---|
+| **SoC** | MediaTek Helio G70 — MT6769V/MT6768, 2×A75 + 6×A55, Mali-G52 MC2 |
+| **RAM / storage** | 4 GB LPDDR4X / 64 GB eMMC 5.1 |
+| **Display** | 6.8″ 720×1640, Novatek **NT36525B** DSI panel (BOE glass, TXD) |
+| **Touch** | Novatek NVT-ts over SPI @ 13.6 MHz |
+| **PMIC / charger** | MT6358 + Richtek **RT9471** (i2c 0x53) |
+| **Modem** | integrated LTE (MT6768), CCCI/CLDMA link to the AP |
+| **Connectivity** | MT6631 CONNSYS (Wi-Fi/BT/FM/GNSS) |
+| **Audio** | MT6358 codec + external speaker amp on **GPIO 39** |
+| **Sensors** | accel/light/prox/step — all behind the MTK SCP |
+
+Full inventory with register bases, IRQs, GPIOs and I2C maps:
+[`docs/hardware.md`](docs/hardware.md) ·
+[`docs/reference/hardware-inventory.md`](docs/reference/hardware-inventory.md)
+
+---
+
+## Reverse-engineering highlights
+
+These are the parts we are most proud of — each one was a hard wall at some point.
+
+- **The phone arrived with every NVRAM partition erased.** `nvram`, `nvdata`, `nvcfg`,
+  `persist`, `protect1/2` all read back as zero. We decoded the MediaTek NV file
+  format (`NV0S_000`, LID `0xF00A`), proved the records are encrypted with a modem-side
+  key derived from OTP, and restored the IMEIs through the **modem's own META API**
+  rather than by patching files. → [`docs/imei-restore.md`](docs/imei-restore.md)
+- **Found the real META handshake.** The preloader speaks *first*: the host sends
+  `METAMETA`, the phone answers `READY` and re-enumerates as `0e8d:202d`. Every guide
+  online had the direction backwards. → [`docs/tooling.md`](docs/tooling.md)
+- **Bypassed a TEE licensing gate** in the vendor IMEI tool with a one-byte patch
+  (`jns` → `jmp`), after proving the licence check is the only TEE consumer in the flow.
+- **Ported the CCCI modem driver to mainline 6.18** and traced a bus hang to a gated
+  MD EINT clock — fixed by writing `0x21` to `INFRA_AO_MD_SRCCLKENA` in U-Boot before
+  the modem boots. → [`docs/modem.md`](docs/modem.md)
+- **Identified the panel from a string inside LK** (`nt36525b_hdp_dsi_vdo_txd_boe_ke7`)
+  and reconstructed its power/reset/bias wiring (GPIO 45, ENP 153, ENN 152).
+- **Ran the whole Windows-only MTK toolchain headlessly** through a QEMU guest agent
+  and synthetic input — no clicking screenshots by hand.
+  → [`docs/tooling.md`](docs/tooling.md)
+
+---
+
+## Repository map
+
+```
+docs/                 curated documentation (start here)
+  ├── overview.md     goals, constraints, results
+  ├── reproduce.md    THE step-by-step guide (any device state)
+  ├── hardware.md     board map, GPIO/I2C/IRQ reference
+  ├── boot-chain.md   BROM → LK → U-Boot → Linux
+  ├── linux-bringup.md kernel, DT, display, touch, USB, power
+  ├── modem.md        CCCI/CLDMA port and the EINT fix
+  ├── imei-restore.md NV format, META, TEE bypass, legality
+  ├── android.md      stock ROM, root, debloat, dialer
+  ├── tooling.md      mtkclient wrappers, META, VM automation
+  ├── legal.md        ownership, IMEI law, firmware copyright
+  └── reference/      raw research logs & inventories (deep detail)
+dts/                  device trees: stock (decompiled) + porting fragments
+hardware/             partition table and sysfs/register dumps
+tools/                flashing, META, VM automation, on-device daemons
+cellular-port/        CCCI/CLDMA driver ported to mainline 6.18
 ```
 
 ---
 
-## 3. Storage & Partition Layout (GPT Table)
+## Quick start
 
-Captured directly from the 64GB eMMC storage via BootROM Kamakiri DA:
+If your phone still boots Android and you only want the Linux install:
 
-| Partition Name | Start Offset | Length | Size | Purpose |
-|---|---|---|---|---|
-| `boot_para` | `0x00008000` | `0x01a00000` | 26 MB | Boot parameters |
-| `proinfo` | `0x01a08000` | `0x00300000` | 3 MB | Product info, serial, hardware flags |
-| `para` | `0x01d08000` | `0x00080000` | 512 KB | Parametric data |
-| `expdb` | `0x01d88000` | `0x01400000` | 20 MB | Exception database / panic dumps |
-| `frp` | `0x03188000` | `0x00100000` | 1 MB | Factory Reset Protection |
-| `metadata` | `0x03288000` | `0x02000000` | 32 MB | Encryption metadata |
-| `nvcfg` | `0x06922000` | `0x02000000` | 32 MB | NVRAM configuration |
-| `nvdata` | `0x08922000` | `0x04000000` | 64 MB | NVRAM calibration & IMEI |
-| `persist` | `0x0c922000` | `0x03000000` | 48 MB | Persistent device state |
-| `protect1` | `0x0f922000` | `0x00800000` | 8 MB | Radio protection data |
-| `protect2` | `0x10122000` | `0x00800000` | 8 MB | Radio protection data |
-| `seccfg` | `0x13000000` | `0x00800000` | 8 MB | Bootloader lock/unlock security state |
-| `sec1` | `0x13800000` | `0x00200000` | 2 MB | Security partition |
-| `md1img` | `0x13a00000` | `0x08000000` | 128 MB | Cellular modem DSP firmware |
-| `spmfw` | `0x1ba00000` | `0x00100000` | 1 MB | System Power Management firmware |
-| `scp1` / `scp2` | `0x1bb00000` | `0x00600000` | 6 MB each | System Companion Processor firmware |
-| `sspm_1` / `_2` | `0x1c700000` | `0x00100000` | 1 MB each | System Secure Processor firmware |
-| `gz1` / `gz2` | `0x1c900000` | `0x01000000` | 16 MB each | Guest OS / Trusty isolation |
-| `nvram` | `0x1e900000` | `0x04000000` | 64 MB | Baseband / RF calibration database |
-| `lk` / `lk2` | `0x22900000` | `0x00200000` | 2 MB each | Little Kernel (Bootloader) primary & backup |
-| `logo` | `0x22d00000` | `0x00800000` | 8 MB | Boot logo raw framebuffer bitmap |
-| `boot` | `0x23500000` | `0x02000000` | 32 MB | Linux kernel (`Image.gz`) + Initramfs |
-| `dtbo` | `0x25500000` | `0x00800000` | 8 MB | Device Tree Blob Overlay |
-| `tee1` / `tee2` | `0x25d00000` | `0x00500000` | 5 MB each | ARM TrustZone OS / TEE |
-| `vbmeta` | `0x26700000` | `0x00800000` | 8 MB | Android Verified Boot 2.0 metadata |
-| `recovery` | `0x10a22000` | `0x02000000` | 32 MB | Recovery kernel & ramdisk |
-| `super` | `0x28000000` | `0x138800000`| 5.25 GB | Dynamic partition container |
-| `userdata` | `0x186000000`| `0xd05cf8000`| 52.1 GB | User storage area |
+```bash
+git clone https://github.com/<you>/tecno-spark-6-linux
+cd tecno-spark-6-linux
+# read docs/reproduce.md first — it lists the prerequisites and the risks
+```
+
+If your phone is bricked, start with [`docs/reproduce.md`](docs/reproduce.md) §2
+(“Recover from any state”).
+
+> ⚠️ **Unlocking the bootloader wipes the device and voids the warranty. Flashing the
+> wrong partition can brick it permanently. You are responsible for your own hardware.**
+> Read [`docs/legal.md`](docs/legal.md) before you start.
 
 ---
 
-## 4. Current State & What Has Been Verified
+## Documentation
 
-* [x] **Host Environment Configured:** Linux udev rules installed (`/etc/udev/rules.d/52-mtk.rules`).
-* [x] **Real-Time BROM Capture:** Captured hardware handshake on USB `0e8d:0003`.
-* [x] **Authentication Bypass:** Kamakiri vulnerability executed, disabling SLA/DAA locks.
-* [x] **Full Flash Dump Completed:** Complete non-volatile partition backup extracted to `backup/` (572 MB).
-* [x] **Confirmed Zero-State:** Verified that storage wipe cleared all code in `boot`, `lk`, `recovery`, `dtbo`, and `logo`.
-* [x] **Extracted Working KE7 Kernel:** Unpacked a working downstream Linux kernel 4.14.141+ targeting `k68v1` from a known KE7 recovery image.
-* [x] **Identified Display Hardware:** Probed panel definitions:
-  * Novatek `nt36525b_hdp_dsi_vdo_txd_boe_ke7`
-  * FocalTech `ft8006s_hdp_dsi_vdo_hx_mdt_ke7`
+Start at [`docs/index.md`](docs/index.md) for the full map, or jump straight to:
+
+- **[Reproduce the port](docs/reproduce.md)** — from stock Android, from a brick, or from a wiped device
+- **[Hardware reference](docs/hardware.md)** — everything we measured
+- **[Modem deep dive](docs/modem.md)** — CCCI, CLDMA and the clock-gating bug
+- **[IMEI restoration](docs/imei-restore.md)** — the NV format and the META protocol
+- **[Raw research log](docs/reference/hardware-research.md)** — the unfiltered engineering notebook
 
 ---
 
-## 5. Porting Roadmap: Getting the Display & Arch Linux Running
+## Legal & ethics
 
-### Milestone 1: Display Bring-up
-1. Flash Little Kernel (`lk.bin` / `lk2.bin`) and `logo.bin` to the device.
-2. `lk` initializes PMIC MT6358 display voltage rails, toggles the LCM reset line, sends MIPI DSI initialization commands, and turns on the backlight boost.
-3. Observe boot screen / color test pattern on the display.
+This repository contains **no proprietary firmware, no vendor binaries and no leaked
+source code**. It documents methods and contains our own code, device-tree fragments
+and measurements. Restoring the IMEI of a device **you own** is legitimate in many
+jurisdictions, but it is regulated in some — and changing another device's IMEI is
+illegal nearly everywhere. Read [`docs/legal.md`](docs/legal.md).
 
-### Milestone 2: Fastboot & Kernel Bring-up
-1. Boot into Fastboot via `lk` or directly flash `boot.img` via `mtkclient`.
-2. Configure kernel cmdline with `console=tty0 console=ttyMT0,921600 clk_ignore_unused pd_ignore_unused`.
-3. Verify Linux kernel console on screen.
+Tecno, MediaTek, Arm and their logos are trademarks of their respective owners. This
+project is not affiliated with or endorsed by any of them.
 
-### Milestone 3: Arch Linux ARM RootFS
-1. Prepare an `arm64` (aarch64) Arch Linux root filesystem on a microSD card.
-2. Direct the kernel cmdline to boot root: `root=PARTUUID=... rw rootwait`.
-3. Enable USB Ethernet ECM / serial ACM gadget (`1d6b:0104`) for direct terminal access over USB.
+## License
+
+MIT — see [LICENSE](LICENSE). Reuse it, fork it, improve it.

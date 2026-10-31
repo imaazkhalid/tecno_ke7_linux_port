@@ -21,15 +21,18 @@ static unsigned long addr = 0xae000000;
 static unsigned int len = 0x100;
 static unsigned int mode;
 static unsigned int value;
+static char *key = "";
 
 module_param(addr, ulong, 0644);
 module_param(len, uint, 0644);
 module_param(mode, uint, 0644);
 module_param(value, uint, 0644);
+module_param(key, charp, 0644);
 MODULE_PARM_DESC(addr, "physical address");
 MODULE_PARM_DESC(len, "length in bytes");
 MODULE_PARM_DESC(mode, "0=hex 1=ascii 2=scan");
 MODULE_PARM_DESC(value, "u32 to scan for (mode=2)");
+MODULE_PARM_DESC(key, "substring filter for mode=4");
 
 static int __init mempeek_init(void)
 {
@@ -60,6 +63,34 @@ static int __init mempeek_init(void)
 	if (mode == 3) {
 		pr_info("mempeek: crc32(%#lx, %#x) = %#x\n", addr, len,
 			crc32_le(~0, p, len) ^ ~0);
+		return 0;
+	}
+
+	if (mode == 4) {
+		unsigned int j = 0;
+		int hits = 0;
+
+		while (j < len && hits < 200) {
+			unsigned int k = 0;
+
+			while (j + k < len && k < 300 && p[j + k] >= 0x20 &&
+			       p[j + k] < 0x7f)
+				k++;
+			if (k >= 6) {
+				char buf[301];
+
+				memcpy(buf, p + j, k);
+				buf[k] = 0;
+				if (!key[0] || strstr(buf, key)) {
+					pr_info("mempeek: +%#x: %s\n", j, buf);
+					hits++;
+				}
+				j += k;
+			} else {
+				j++;
+			}
+		}
+		pr_info("mempeek: %d hits for \"%s\"\n", hits, key);
 		return 0;
 	}
 

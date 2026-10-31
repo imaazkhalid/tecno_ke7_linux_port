@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Drive the SN Writer GUI: agent supplies control rects, QMP provides real input."""
-import json, subprocess, sys, time
+import json, os, subprocess, sys, time
 
 DOM = "WINMETA"
 URI = "qemu:///session"
 if len(sys.argv) < 3:
     print("usage: snw_drive.py <IMEI1> <IMEI2>"); sys.exit(1)
 IMEI1, IMEI2 = sys.argv[1], sys.argv[2]
-VM = "~/tecno_ke7_linux_port/tools/vm_exec.py"
+VM = os.path.expanduser("~/tecno_ke7_linux_port/tools/vm_exec.py")
 
 def qmp(payload):
     r = subprocess.run(["virsh", "-c", URI, "qemu-monitor-command", DOM, json.dumps(payload)],

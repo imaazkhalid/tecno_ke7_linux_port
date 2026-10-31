@@ -71,6 +71,15 @@ static void __iomem *md_sram_pd_psmcusys_base;
 
 #define TAG "mcd"
 
+/*
+ * Bits driven into INFRA_AO_MD_SRCCLKENA (0x1000_1F0C) at modem power-on.
+ * LK/our U-Boot use 0x21 (bit0 = MD1 SRCCLKREQ, bit5 = second request).
+ * Exposed so the whole low byte can be swept while debugging the DSP boot.
+ */
+static unsigned int md_srcclkena_val = 0x21;
+module_param(md_srcclkena_val, uint, 0644);
+MODULE_PARM_DESC(md_srcclkena_val, "value OR'ed into SRCCLKENA[7:0] (default 0x21)");
+
 static size_t mdreg_write32(size_t reg_id, size_t value)
 {
 	struct arm_smccc_res res;
@@ -506,9 +515,304 @@ static int dump_emi_last_bm(struct ccci_modem *md)
 	return 0;
 }
 
+/* Dump a small chunk of reserved RAM through a bounce buffer */
+static void md_cd_dbg_dump_mem(const char *tag, phys_addr_t addr,
+	unsigned int len)
+{
+	u8 buf[64];
+	char pfx[40];
+
+	if (len > sizeof(buf))
+		len = sizeof(buf);
+	/* These regions are reserved but still part of the linear map, so
+	 * ioremap() warns/refuses (pfn_is_map_memory()); __va() is correct.
+	 */
+	memcpy(buf, __va(addr), len);
+	snprintf(pfx, sizeof(pfx), "[ccci1/dbg] %s", tag);
+	print_hex_dump(KERN_INFO, pfx, DUMP_PREFIX_OFFSET, 16, 1, buf, len,
+		false);
+}
+
+/*
+ * Read-only snapshot of a stalled modem, printed straight to dmesg.
+ *
+ * IMPORTANT: this must never reset, re-clock or power-cycle the MD.  Earlier
+ * revisions of this helper kicked the RGU and dropped the MD power domain,
+ * which destroyed the very state we are trying to observe (and made the FSM
+ * loop: reset -> HS1 -> HS2 timeout -> reset ...).
+ *
+ * The CCCI memory log (CCCI_MEM_LOG_TAG) is only flushed on an AEE/MD
+ * exception, so a silently stalled modem leaves no trace there.  dmesg is the
+ * only channel that survives.
+ */
+static void md_cd_dump_pcmon_dmesg(struct ccci_modem *md)
+{
+	void __iomem *dbg = NULL, *pcm = NULL, *pw = NULL;
+	unsigned int bs[2] = { 0 };
+	unsigned int first[0x200];
+	unsigned int i, v, nz, changed;
+	static unsigned int pass;
+
+	pass++;
+	pr_info("[ccci1/dbg] ===== modem snapshot #%u =====\n", pass);
+
+	/* Boot stage markers live in the CCIF SRAM ("S2"/"TC7" style tags) */
+	md_cd_get_md_bootup_status(md, bs, 2);
+	pr_info("[ccci1/dbg] boot_stats0=0x%08x boot_stats1=0x%08x\n",
+		bs[0], bs[1]);
+
+	/* Open the modem debug APB clock, exactly like the vendor dump does */
+	dbg = ioremap(MD1_OPEN_DEBUG_APB_CLK, 0x1000);
+	if (dbg) {
+		writel(readl(dbg + 0x430) | 0x1, dbg + 0x430);
+		udelay(1000);
+		pr_info("[ccci1/dbg] dbg_apb[0x430]=0x%08x\n",
+			readl(dbg + 0x430));
+	}
+
+	/* INFRA_AO: MD source clock + AP<->MD bridge protection state */
+	{
+		void __iomem *ia = ioremap(0x10001000, 0x1000);
+
+		if (ia) {
+			pr_info("[ccci1/dbg] srclkena=0x%08x ap2md_dummy=0x%08x peri2md(en/rdy)=0x%08x/0x%08x md2peri(en/rdy)=0x%08x/0x%08x\n",
+				readl(ia + 0xf0c), readl(ia + 0xf04),
+				readl(ia + 0x220), readl(ia + 0x228),
+				readl(ia + 0x250), readl(ia + 0x258));
+			iounmap(ia);
+		}
+	}
+
+	/* SCPSYS: MD1 power domain + possible "scp-sys-md1-main" gate */
+	{
+		void __iomem *sp = ioremap(0x10006000, 0x1000);
+
+		if (sp) {
+			pr_info("[ccci1/dbg] scpsys 000=%08x 004=%08x 008=%08x 00c=%08x 010=%08x 028=%08x 180=%08x 184=%08x 320=%08x 398=%08x\n",
+				readl(sp + 0x000), readl(sp + 0x004),
+				readl(sp + 0x008), readl(sp + 0x00c),
+				readl(sp + 0x010), readl(sp + 0x028),
+				readl(sp + 0x180), readl(sp + 0x184),
+				readl(sp + 0x320), readl(sp + 0x398));
+			iounmap(sp);
+		}
+	}
+
+	/*
+	 * Is the DRAM copy of the modem image identical to md1img.img?
+	 * MD view 0x90000000 corresponds to file offset 0x200, i.e. the AP
+	 * address of MD 0x9XXXXXXX is md_resv_base + (0x9XXXXXXX-0x90000000).
+	 * Compare with the offsets printed here:
+	 *   img+0000    -> file 0x000200
+	 *   img+da8750  -> file 0xda8950
+	 *   img+294cf0  -> file 0x294ef0
+	 */
+	{
+		phys_addr_t mbase = 0;
+		unsigned int msize = 0;
+
+		if (get_md_resv_mem_info(MD_SYS1, &mbase, &msize, NULL, NULL)
+		    == 0 && mbase) {
+			pr_info("[ccci1/dbg] md_resv base=0x%llx size=0x%x\n",
+				(unsigned long long)mbase, msize);
+			md_cd_dbg_dump_mem("img+0000   ",
+				mbase, 64);
+			md_cd_dbg_dump_mem("img+da8750 ",
+				mbase + 0xda8750, 48);
+			md_cd_dbg_dump_mem("img+294cf0 ",
+				mbase + 0x294cf0, 48);
+		}
+	}
+
+	/* Is the DSP firmware (md1dsp) actually present in the MD reserved area? */
+	{
+		phys_addr_t mbase = 0;
+		unsigned int msize = 0;
+
+		if (get_md_resv_mem_info(MD_SYS1, &mbase, &msize, NULL, NULL)
+		    == 0 && mbase) {
+			const u8 *mp = (const u8 *)__va(mbase);
+			unsigned int off;
+			int found = 0;
+
+			for (off = 0; off + 0x120 < msize; off += 4) {
+				if (mp[off] == 'F' && mp[off + 1] == 'I' &&
+				    mp[off + 2] == 'L' && mp[off + 3] == 'E' &&
+				    !memcmp(mp + off, "FILE_INFO", 9)) {
+					pr_info("[ccci1/dbg] DSP FILE_INFO @md_resv+0x%x size=0x%x dsp=%d\n",
+						off,
+						*(const u32 *)(mp + off + 0x18),
+						!memcmp(mp + off + 0x114, "DSP!", 4));
+					found++;
+					if (found >= 6)
+						break;
+				}
+			}
+			if (!found)
+				pr_info("[ccci1/dbg] DSP FILE_INFO NOT found in md_resv 0x%x\n",
+					msize);
+		}
+	}
+
+	/*
+	 * USIP/SCQ16 exception handshake (us_excep_hdlr.h):
+	 *   USIP_SCQ16_EX_INIT_PATTERN = 0x62935566
+	 *   EX_STATUS_USIP_SCQ16_CORE_END = 0x6293beef
+	 * The MCU writes the pattern and waits USIP_SCQ16_EX_SYNC_TIMEOUT (0x200000)
+	 * for each of USIP0_0, USIP0_1, USIP1_0, USIP1_1, SCQ16_0, SCQ16_1.
+	 * Find the structure in the modem's DRAM and dump the per-core status.
+	 */
+	{
+		phys_addr_t mbase = 0;
+		unsigned int msize = 0;
+
+		if (get_md_resv_mem_info(MD_SYS1, &mbase, &msize, NULL, NULL)
+		    == 0 && mbase) {
+			const u32 *mp = (const u32 *)__va(mbase);
+			unsigned int n = msize / 4, k;
+			int found = 0;
+
+			for (k = 0; k < n && found < 4; k++) {
+				unsigned int j, lo, hi;
+
+				if (mp[k] != 0x62935566 && mp[k] != 0x6293beef)
+					continue;
+				pr_info("[ccci1/dbg] usip_ex %08x @md_resv+0x%x (word %u)\n",
+					mp[k], k * 4, k);
+				lo = k > 0x10 ? k - 0x10 : 0;
+				hi = k + 0x28;
+				if (hi > n)
+					hi = n;
+				for (j = lo; j < hi; j += 8)
+					pr_info("[ccci1/dbg] usip_ex +%04x: %08x %08x %08x %08x %08x %08x %08x %08x%s\n",
+						j * 4, mp[j], mp[j + 1], mp[j + 2],
+						mp[j + 3], mp[j + 4], mp[j + 5],
+						mp[j + 6], mp[j + 7],
+						(j <= k && k < j + 8) ? "  <== here" : "");
+				found++;
+			}
+			if (!found)
+				pr_info("[ccci1/dbg] usip_ex handshake pattern not found in md_resv\n");
+		}
+	}
+
+	/* Scan the AP<->MD shared memory for printable strings (assert log) */
+	{
+		phys_addr_t sbase = 0;
+		unsigned int ssize = 0;
+
+		if (get_md_resv_mem_info(MD_SYS1, NULL, NULL, &sbase, &ssize)
+		    == 0 && sbase) {
+			const u8 *sp = (const u8 *)__va(sbase);
+			unsigned int off;
+			int found = 0;
+
+			pr_info("[ccci1/dbg] smem scan base=0x%llx size=0x%x\n",
+				(unsigned long long)sbase, ssize);
+			for (off = 0; off < ssize && found < 60; off++) {
+				unsigned int len = 0;
+
+				while (off + len < ssize && len < 100 &&
+				       sp[off + len] >= 0x20 && sp[off + len] < 0x7f)
+					len++;
+				if (len >= 8) {
+					pr_info("[ccci1/dbg] smem+%07x: %.100s\n",
+						off, &sp[off]);
+					found++;
+					off += len;
+				}
+			}
+		}
+	}
+
+	/* MD exception/dbg smem headers (CCCI/EDBG records) */
+	{
+		struct ccci_smem_region *r;
+
+		r = ccci_md_get_smem_by_user_id(MD_SYS1,
+			SMEM_USER_RAW_MDCCCI_DBG);
+		if (r && r->base_ap_view_vir) {
+			pr_info("[ccci1/dbg] mdccci_dbg size=0x%x\n", r->size);
+			md_cd_dbg_dump_mem("mdccci+0000 ",
+				r->base_ap_view_phy, 64);
+			md_cd_dbg_dump_mem("mdccci+0200 ",
+				r->base_ap_view_phy + 0x200, 64);
+		}
+	}
+
+	/* PC monitor: core0 samples 0x0..0x3ff, core1 0x400..0x7ff */
+	pcm = ioremap(MD_PC_MONITOR_BASE, MD_PC_MONITOR_LEN);
+	if (!pcm) {
+		pr_info("[ccci1/dbg] ioremap pcmon failed\n");
+		goto out;
+	}
+	mdreg_write32(MD_REG_PC_MONITOR, 0x22);	/* stop */
+	udelay(100);
+	for (i = 0; i < 0x200; i++)
+		first[i] = readl(pcm + i * 4);
+
+	nz = 0;
+	for (i = 0; i < 0x200; i++) {
+		if (first[i])
+			nz++;
+	}
+	pr_info("[ccci1/dbg] pcmon[0x000-0x7ff]: %u/512 words nonzero\n", nz);
+	for (i = 0; i < 0x200; i += 8) {
+		if (!first[i] && !first[i + 1] && !first[i + 2] &&
+		    !first[i + 3] && !first[i + 4] && !first[i + 5] &&
+		    !first[i + 6] && !first[i + 7])
+			continue;
+		pr_info("[ccci1/dbg] pcm %03x: %08x %08x %08x %08x %08x %08x %08x %08x\n",
+			i * 4, first[i], first[i + 1], first[i + 2],
+			first[i + 3], first[i + 4], first[i + 5],
+			first[i + 6], first[i + 7]);
+	}
+	pr_info("[ccci1/dbg] pcmon common:");
+	for (i = 0x200; i < 0x260; i++)
+		pr_cont(" %08x", first[i]);
+	pr_cont("\n");
+
+	/* Is the core still executing?  Re-arm, wait, compare. */
+	mdreg_write32(MD_REG_PC_MONITOR, 0x11);	/* start */
+	msleep(300);
+	mdreg_write32(MD_REG_PC_MONITOR, 0x22);	/* stop */
+	udelay(100);
+	changed = 0;
+	for (i = 0; i < 0x200; i++) {
+		if (readl(pcm + i * 4) != first[i])
+			changed++;
+	}
+	pr_info("[ccci1/dbg] pcmon words changed after 300ms: %u\n", changed);
+	mdreg_write32(MD_REG_PC_MONITOR, 0x11);	/* resume */
+
+	/* PMIC wrapper: is the MD stuck on a PMIC (VSIM) transaction? */
+	pw = ioremap(0x1000D000, 0x1000);
+	if (pw) {
+		nz = 0;
+		for (i = 0; i < 0x400; i += 4) {
+			if (readl(pw + i))
+				nz++;
+		}
+		pr_info("[ccci1/dbg] pwrap nonzero %u/256\n", nz);
+		for (i = 0; i < 0x400; i += 4) {
+			v = readl(pw + i);
+			if (v)
+				pr_info("[ccci1/dbg] pwrap+%03x=0x%08x\n", i, v);
+		}
+		iounmap(pw);
+	}
+
+out:
+	if (pcm)
+		iounmap(pcm);
+	if (dbg)
+		iounmap(dbg);
+}
+
 void md_cd_dump_debug_register(struct ccci_modem *md)
 {
 	/* MD no need dump because of bus hang happened - open for debug */
+	md_cd_dump_pcmon_dmesg(md);
 	struct ccci_per_md *per_md_data = &md->per_md_data;
 	unsigned int reg_value[2] = { 0 };
 	unsigned int ccif_sram[
@@ -1172,6 +1476,34 @@ int md_cd_power_on(struct ccci_modem *md)
 		CCCI_BOOTUP_LOG(md->index, TAG, "pm_runtime_get_sync for md1 mtcmos ret = %d\n", ret);
 	}
 
+	/*
+	 * mainline mtk-pm-domains models MT6768_POWER_DOMAIN_MD1 with
+	 * sram_pdn_bits = 0, so MD1_PWR_CON[8] (SRAM_PDN) is left SET and
+	 * MD_SRAM_ISO_CON / MD_EXTRA_PWR_CON are never programmed.  The vendor
+	 * MTCMOS sequence (clk-mt6768-pg.c MD1_sys_enable_op and LK
+	 * spm_md_mtcmos.c) instead:
+	 *   - restores SPM project code + register enable (0x0B160001),
+	 *   - clears MD1_PWR_CON[8]  (power the MD1 SRAM),
+	 *   - sets   MD_SRAM_ISO_CON[0],
+	 *   - clears MD_EXTRA_PWR_CON[0].
+	 * Left unfixed the MD runs with its SRAM power-gated (observed
+	 * MD1_PWR_CON=0x10D where the vendor ends at 0x00D).
+	 */
+	{
+		void __iomem *spm = ioremap(0x10006000, 0x1000);
+
+		if (spm) {
+			writel(0x0B160001, spm + 0x000);
+			writel(readl(spm + 0x320) & ~BIT(8), spm + 0x320);
+			writel(readl(spm + 0x394) | BIT(0), spm + 0x394);
+			writel(readl(spm + 0x398) & ~BIT(0), spm + 0x398);
+			pr_info("[ccci1/mcd] md1 sram on: cfg=%08x pwr=%08x iso=%08x extra=%08x\n",
+				readl(spm + 0x000), readl(spm + 0x320),
+				readl(spm + 0x394), readl(spm + 0x398));
+			iounmap(spm);
+		}
+	}
+
 #ifdef FEATURE_CLK_BUF
 	clk_buf_set_by_flightmode(false);
 #endif
@@ -1190,7 +1522,7 @@ int md_cd_power_on(struct ccci_modem *md)
 	/* step 4: MD srcclkena setting */
 	reg_value = ccci_read32(md->hw_info->plat_val->infra_ao_base, INFRA_AO_MD_SRCCLKENA);
 	reg_value &= ~(0xFF);
-	reg_value |= 0x21;
+	reg_value |= (md_srcclkena_val & 0xFF);
 	ccci_write32(md->hw_info->plat_val->infra_ao_base, INFRA_AO_MD_SRCCLKENA, reg_value);
 	CCCI_BOOTUP_LOG(md->index, CORE,
 		"%s: set md1_srcclkena bit(0x1000_0F0C)=0x%x\n", __func__,

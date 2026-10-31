@@ -1,0 +1,158 @@
+Captured at: 10:43:16.105
+Sensor Device:
+Total 10 h/w sensors, 10 running:
+0x00000001) active-count = 2; sampling_period(ms) = {66.7, 66.7}, selected = 66.67 ms; batching_period(ms) = {100.0, 0.0}, selected = 0.00 ms
+0x00000005) active-count = 1; sampling_period(ms) = {250.0}, selected = 250.00 ms; batching_period(ms) = {0.0}, selected = 0.00 ms
+Sensor List:
+0x00000001) ACCELEROMETER             | MTK             | ver: 1 | type: android.sensor.accelerometer(1) | perm: n/a | flags: 0x00000000
+	continuous | minRate=5.00Hz | maxRate=200.00Hz | FIFO (max,reserved) = (4500, 3000) events | non-wakeUp | 
+0x00000005) LIGHT                     | MTK             | ver: 1 | type: android.sensor.light(5) | perm: n/a | flags: 0x00000002
+	on-change | minRate=1.00Hz | minDelay=0us | no batching | non-wakeUp | 
+0x00000008) PROXIMITY                 | MTK             | ver: 1 | type: android.sensor.proximity(8) | perm: n/a | flags: 0x00000003
+	on-change | minRate=1.00Hz | minDelay=0us | FIFO (max,reserved) = (4500, 100) events | wakeUp | 
+0x00000012) STEP_DETECTOR             | MTK             | ver: 1 | type: android.sensor.step_detector(18) | perm: android.permission.ACTIVITY_RECOGNITION | flags: 0x00000006
+	special-trigger | maxDelay=0us | minDelay=0us | FIFO (max,reserved) = (4500, 100) events | non-wakeUp | 
+0x00000013) STEP_COUNTER              | MTK             | ver: 1 | type: android.sensor.step_counter(19) | perm: android.permission.ACTIVITY_RECOGNITION | flags: 0x00000002
+	on-change | minRate=1.00Hz | minDelay=0us | no batching | non-wakeUp | 
+0x00000016) TILT_DETECTOR             | MTK             | ver: 1 | type: android.sensor.tilt_detector(22) | perm: n/a | flags: 0x00000007
+	special-trigger | maxDelay=0us | minDelay=0us | no batching | wakeUp | 
+0x00000017) WAKE_GESTURE              | MTK             | ver: 1 | type: android.sensor.wake_gesture(23) | perm: n/a | flags: 0x00000005
+	one-shot | maxDelay=0us | minDelay=-1us | no batching | wakeUp | 
+0x0000001d) STATIONARY_DETECT         | MTK             | ver: 1 | type: android.sensor.stationary_detect(29) | perm: n/a | flags: 0x00000005
+	one-shot | maxDelay=0us | minDelay=-1us | no batching | wakeUp | 
+0x0000001e) MOTION_DETECT             | MTK             | ver: 1 | type: android.sensor.motion_detect(30) | perm: n/a | flags: 0x00000005
+	one-shot | maxDelay=0us | minDelay=-1us | no batching | wakeUp | 
+0x00000065) STEP_DETECTOR_WAKEUP      | MTK             | ver: 1 | type: android.sensor.step_detector(18) | perm: android.permission.ACTIVITY_RECOGNITION | flags: 0x00000007
+	special-trigger | maxDelay=0us | minDelay=0us | FIFO (max,reserved) = (4500, 100) events | wakeUp | 
+Fusion States:
+9-axis fusion disabled (0 clients), gyro-rate= 200.00Hz, q=< 0, 0, 0, 0 > (0), b=< 0, 0, 0 >
+game fusion(no mag) disabled (0 clients), gyro-rate= 200.00Hz, q=< 0, 0, 0, 0 > (0), b=< 0, 0, 0 >
+geomag fusion (no gyro) disabled (0 clients), gyro-rate= 200.00Hz, q=< 0, 0, 0, 0 > (0), b=< 0, 0, 0 >
+Recent Sensor events:
+LIGHT: last 50 events
+	 1 (ts=2497.181161249, wall=10:42:27.025) 82.00, 0.00, 0.00, 
+	 2 (ts=2497.381173797, wall=10:42:27.226) 77.00, 0.00, 0.00, 
+	 3 (ts=2497.781167548, wall=10:42:27.628) 83.00, 0.00, 0.00, 
+	 4 (ts=2497.981179769, wall=10:42:27.825) 85.00, 0.00, 0.00, 
+	 5 (ts=2498.181161067, wall=10:42:28.025) 82.00, 0.00, 0.00, 
+	 6 (ts=2498.381173611, wall=10:42:28.240) 86.00, 0.00, 0.00, 
+	 7 (ts=2498.581185664, wall=10:42:28.425) 88.00, 0.00, 0.00, 
+	 8 (ts=2498.781167471, wall=10:42:28.625) 86.00, 0.00, 0.00, 
+	 9 (ts=2499.181161381, wall=10:42:29.025) 88.00, 0.00, 0.00, 
+	10 (ts=2499.381173702, wall=10:42:29.225) 89.00, 0.00, 0.00, 
+	11 (ts=2499.581185711, wall=10:42:29.425) 88.00, 0.00, 0.00, 
+	12 (ts=2500.581185808, wall=10:42:30.425) 89.00, 0.00, 0.00, 
+	13 (ts=2500.781167639, wall=10:42:30.625) 90.00, 0.00, 0.00, 
+	14 (ts=2501.781167583, wall=10:42:31.625) 91.00, 0.00, 0.00, 
+	15 (ts=2502.381173650, wall=10:42:32.225) 92.00, 0.00, 0.00, 
+	16 (ts=2508.381173554, wall=10:42:38.225) 93.00, 0.00, 0.00, 
+	17 (ts=2509.581186069, wall=10:42:39.425) 94.00, 0.00, 0.00, 
+	18 (ts=2509.781167598, wall=10:42:39.625) 93.00, 0.00, 0.00, 
+	19 (ts=2511.181161428, wall=10:42:41.025) 94.00, 0.00, 0.00, 
+	20 (ts=2512.181161318, wall=10:42:42.026) 93.00, 0.00, 0.00, 
+	21 (ts=2513.581185972, wall=10:42:43.425) 92.00, 0.00, 0.00, 
+	22 (ts=2518.581186053, wall=10:42:48.425) 93.00, 0.00, 0.00, 
+	23 (ts=2520.781167521, wall=10:42:50.625) 92.00, 0.00, 0.00, 
+	24 (ts=2521.381173626, wall=10:42:51.225) 93.00, 0.00, 0.00, 
+	25 (ts=2525.181161401, wall=10:42:55.025) 92.00, 0.00, 0.00, 
+	26 (ts=2526.181161478, wall=10:42:56.025) 93.00, 0.00, 0.00, 
+	27 (ts=2527.181161684, wall=10:42:57.025) 92.00, 0.00, 0.00, 
+	28 (ts=2527.581186006, wall=10:42:57.425) 93.00, 0.00, 0.00, 
+	29 (ts=2528.181161386, wall=10:42:58.025) 92.00, 0.00, 0.00, 
+	30 (ts=2528.981179863, wall=10:42:58.826) 93.00, 0.00, 0.00, 
+	31 (ts=2533.781167541, wall=10:43:03.625) 92.00, 0.00, 0.00, 
+	32 (ts=2538.781167772, wall=10:43:08.627) 93.00, 0.00, 0.00, 
+	33 (ts=2539.181161382, wall=10:43:09.025) 92.00, 0.00, 0.00, 
+	34 (ts=2539.381173636, wall=10:43:09.225) 89.00, 0.00, 0.00, 
+	35 (ts=2539.581185944, wall=10:43:09.425) 85.00, 0.00, 0.00, 
+	36 (ts=2539.781167421, wall=10:43:09.625) 76.00, 0.00, 0.00, 
+	37 (ts=2539.981179743, wall=10:43:09.825) 81.00, 0.00, 0.00, 
+	38 (ts=2540.181161410, wall=10:43:10.025) 80.00, 0.00, 0.00, 
+	39 (ts=2540.381173733, wall=10:43:10.225) 77.00, 0.00, 0.00, 
+	40 (ts=2540.581186041, wall=10:43:10.425) 78.00, 0.00, 0.00, 
+	41 (ts=2540.781167584, wall=10:43:10.626) 79.00, 0.00, 0.00, 
+	42 (ts=2540.981179840, wall=10:43:10.827) 80.00, 0.00, 0.00, 
+	43 (ts=2541.381173676, wall=10:43:11.227) 79.00, 0.00, 0.00, 
+	44 (ts=2541.581186002, wall=10:43:11.425) 82.00, 0.00, 0.00, 
+	45 (ts=2541.781167585, wall=10:43:11.625) 88.00, 0.00, 0.00, 
+	46 (ts=2542.581185877, wall=10:43:12.425) 89.00, 0.00, 0.00, 
+	47 (ts=2542.781167502, wall=10:43:12.625) 88.00, 0.00, 0.00, 
+	48 (ts=2543.581186432, wall=10:43:13.425) 89.00, 0.00, 0.00, 
+	49 (ts=2543.781167979, wall=10:43:13.625) 90.00, 0.00, 0.00, 
+	50 (ts=2546.181161877, wall=10:43:16.025) 89.00, 0.00, 0.00, 
+ACCELEROMETER: last 50 events
+	 1 (ts=2543.137760556, wall=10:43:12.982) 0.11, 0.11, 9.81, 
+	 2 (ts=2543.200260589, wall=10:43:13.045) 0.00, 0.11, 9.81, 
+	 3 (ts=2543.262760595, wall=10:43:13.107) 0.08, 0.15, 9.89, 
+	 4 (ts=2543.325260609, wall=10:43:13.170) 0.11, 0.23, 9.83, 
+	 5 (ts=2543.387760864, wall=10:43:13.232) 0.04, 0.11, 9.83, 
+	 6 (ts=2543.450260647, wall=10:43:13.295) 0.08, 0.11, 9.83, 
+	 7 (ts=2543.512760676, wall=10:43:13.357) 0.19, 0.15, 9.85, 
+	 8 (ts=2543.575260662, wall=10:43:13.421) 0.15, 0.19, 9.85, 
+	 9 (ts=2543.637760873, wall=10:43:13.482) 0.11, 0.19, 9.89, 
+	10 (ts=2543.700260878, wall=10:43:13.545) 0.00, 0.08, 9.89, 
+	11 (ts=2543.762760653, wall=10:43:13.608) 0.08, 0.15, 9.89, 
+	12 (ts=2543.825260686, wall=10:43:13.670) 0.08, 0.11, 9.89, 
+	13 (ts=2543.887760739, wall=10:43:13.732) 0.11, 0.19, 9.82, 
+	14 (ts=2543.950260723, wall=10:43:13.795) 0.08, 0.27, 9.82, 
+	15 (ts=2544.012760954, wall=10:43:13.857) 0.00, 0.15, 9.82, 
+	16 (ts=2544.075260742, wall=10:43:13.919) 0.11, 0.19, 9.87, 
+	17 (ts=2544.137760738, wall=10:43:13.982) 0.15, 0.19, 9.81, 
+	18 (ts=2544.200260729, wall=10:43:14.045) 0.11, 0.15, 9.87, 
+	19 (ts=2544.262760719, wall=10:43:14.107) 0.11, 0.08, 9.81, 
+	20 (ts=2544.325260728, wall=10:43:14.170) 0.11, 0.15, 9.81, 
+	21 (ts=2544.387760964, wall=10:43:14.232) 0.11, 0.19, 9.81, 
+	22 (ts=2544.450260747, wall=10:43:14.295) 0.04, 0.27, 9.81, 
+	23 (ts=2544.512760747, wall=10:43:14.357) 0.11, 0.15, 9.86, 
+	24 (ts=2544.575260753, wall=10:43:14.420) 0.00, 0.19, 9.86, 
+	25 (ts=2544.637760969, wall=10:43:14.482) 0.11, 0.11, 9.87, 
+	26 (ts=2544.700260988, wall=10:43:14.545) 0.11, 0.15, 9.89, 
+	27 (ts=2544.762760762, wall=10:43:14.607) 0.08, 0.15, 9.89, 
+	28 (ts=2544.825260767, wall=10:43:14.670) 0.08, 0.23, 9.81, 
+	29 (ts=2544.887760767, wall=10:43:14.732) 0.11, 0.08, 9.81, 
+	30 (ts=2544.950260743, wall=10:43:14.795) 0.08, 0.11, 9.89, 
+	31 (ts=2545.012760973, wall=10:43:14.857) 0.08, 0.27, 9.89, 
+	32 (ts=2545.075260729, wall=10:43:14.920) 0.11, 0.19, 9.89, 
+	33 (ts=2545.137760714, wall=10:43:14.982) 0.08, 0.15, 9.83, 
+	34 (ts=2545.200260728, wall=10:43:15.045) 0.15, 0.23, 9.81, 
+	35 (ts=2545.262760738, wall=10:43:15.107) 0.08, 0.15, 9.81, 
+	36 (ts=2545.325260940, wall=10:43:15.170) 0.00, 0.15, 9.81, 
+	37 (ts=2545.387760935, wall=10:43:15.232) 0.08, 0.11, 9.87, 
+	38 (ts=2545.450260690, wall=10:43:15.295) 0.15, 0.11, 9.87, 
+	39 (ts=2545.512760695, wall=10:43:15.357) 0.00, 0.08, 9.83, 
+	40 (ts=2545.575260695, wall=10:43:15.419) 0.11, 0.15, 9.87, 
+	41 (ts=2545.637760935, wall=10:43:15.482) 0.08, 0.04, 9.87, 
+	42 (ts=2545.700260945, wall=10:43:15.545) 0.11, 0.11, 9.87, 
+	43 (ts=2545.762760709, wall=10:43:15.607) 0.08, 0.23, 9.85, 
+	44 (ts=2545.825260704, wall=10:43:15.670) 0.15, 0.19, 9.90, 
+	45 (ts=2545.887760685, wall=10:43:15.732) 0.00, 0.08, 9.90, 
+	46 (ts=2545.950260714, wall=10:43:15.794) 0.08, 0.15, 9.85, 
+	47 (ts=2546.012760969, wall=10:43:15.857) 0.08, 0.11, 9.81, 
+	48 (ts=2546.075260762, wall=10:43:15.920) 0.19, 0.15, 9.81, 
+	49 (ts=2546.137760766, wall=10:43:15.982) 0.11, 0.19, 9.81, 
+	50 (ts=2546.200260743, wall=10:43:16.045) 0.00, 0.15, 9.85, 
+Active sensors:
+ACCELEROMETER (handle=0x00000001, connections=2)
+LIGHT (handle=0x00000005, connections=1)
+Socket Buffer size = 984 events
+WakeLock Status: not held 
+Mode : NORMAL
+Sensor Privacy: disabled
+3 active connections
+Connection Number: 0 
+	Operating Mode: NORMAL
+	 com.android.server.display.AutomaticBrightnessController | WakeLockRefCount 0 | uid 1000 | cache size 0 | max cache size 0
+	 LIGHT 0x00000005 | status: active | pending flush events 0 
+Connection Number: 1 
+	Operating Mode: NORMAL
+	 com.android.server.policy.WindowOrientationListener | WakeLockRefCount 0 | uid 1000 | cache size 0 | max cache size 0
+	 ACCELEROMETER 0x00000001 | status: active | pending flush events 0 
+Connection Number: 2 
+	Operating Mode: NORMAL
+	 app.morphe.manager.ui.screen.shared.backgrounds.AnimationSpecsKt$rememberParallaxState$2$1$1 | WakeLockRefCount 0 | uid 10194 | cache size 0 | max cache size 0
+	 ACCELEROMETER 0x00000001 | status: active | pending flush events 0 
+0 direct connections
+Previous Registrations:
+10:32:33 + 0x00000001 pid=10544 uid=10194 package=app.morphe.manager.ui.screen.shared.backgrounds.AnimationSpecsKt$rememberParallaxState$2$1$1 samplingPeriod=66667us batchingPeriod=0us
+10:01:14 + 0x00000005 pid= 1267 uid= 1000 package=com.android.server.display.AutomaticBrightnessController samplingPeriod=250000us batchingPeriod=0us
+10:01:12 + 0x00000001 pid= 1267 uid= 1000 package=com.android.server.policy.WindowOrientationListener samplingPeriod=66667us batchingPeriod=100000us

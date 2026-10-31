@@ -1,0 +1,4 @@
+gpiochip0: GPIOs 325-511, parent: platform/pinctrl, pinctrl_paris:
+ gpio-329 (                    |cd                  ) in  hi IRQ
+ gpio-334 (                    |rt9471_intr_gpio.5-0) in  hi IRQ
+ gpio-490 (                    |led_ctl_gpio        ) out lo    

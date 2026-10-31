@@ -869,6 +869,37 @@ static int md_cd_send_runtime_data_v2(struct ccci_modem *md,
 	md_cd_smem_sub_region_init(md);
 
 	ret = ccci_hif_send_data(CCIF_HIF_ID, H2D_SRAM);
+
+	/*
+	 * DEBUG: H2D_SRAM is the doorbell that tells the MD the runtime data
+	 * is ready in CCIF SRAM.  If the MD never clears the BUSY bit it never
+	 * saw (or never accepted) the handshake reply, which is exactly what a
+	 * silent stall between HS1 and HS2 looks like.
+	 */
+	{
+		struct md_ccif_ctrl *md_ctrl =
+			(struct md_ccif_ctrl *)ccci_hif_get_by_id(CCIF_HIF_ID);
+		int i, busy = -1;
+
+		if (md_ctrl) {
+			busy = ccif_read32(md_ctrl->ccif_ap_base, APCCIF_BUSY);
+			pr_info("[ccci1/mcd] rt-data: send ret=%d, APBUSY=%08X\n",
+				ret, busy);
+			for (i = 0; i < 100; i++) {
+				busy = ccif_read32(md_ctrl->ccif_ap_base,
+					APCCIF_BUSY);
+				if (!(busy & (1 << H2D_SRAM)))
+					break;
+				msleep(10);
+			}
+			pr_info("[ccci1/mcd] rt-data: H2D_SRAM busy %s after %dms (APBUSY=%08X, TCHNUM=%08X)\n",
+				(busy & (1 << H2D_SRAM)) ? "STILL SET" : "cleared",
+				i * 10, busy,
+				ccif_read32(md_ctrl->ccif_ap_base,
+					APCCIF_TCHNUM));
+		}
+	}
+
 	return ret;
 }
 
@@ -1176,6 +1207,12 @@ static ssize_t md_cd_dump_store(struct ccci_modem *md,
 				DUMP_FLAG_SMEM_CCB_DATA, NULL, 0);
 		if (strncmp(buf, "pccif", count - 1) == 0)
 			md->ops->dump_info(md, DUMP_FLAG_PCCIF_REG, NULL, 0);
+		if (strncmp(buf, "rtdata", count - 1) == 0) {
+			int r = ccci_md_send_runtime_data(md->index);
+
+			CCCI_NORMAL_LOG(md->index, TAG,
+				"manual runtime data resend: %d\n", r);
+		}
 		if (strncmp(buf, "image", count - 1) == 0)
 			md->ops->dump_info(md, DUMP_FLAG_IMAGE, NULL, 0);
 		if (strncmp(buf, "layout", count - 1) == 0)

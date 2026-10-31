@@ -1,0 +1,86 @@
+ regulator                      use open bypass voltage current     min     max
+-------------------------------------------------------------------------------
+ regulator-dummy                  0    9      0     0mV     0mA     0mV     0mV 
+    bootdevice                                                      0mV     0mV
+    usb_phy_generic.0.auto                                          0mV     0mV
+    kd_camera_hw                                                    0mV     0mV
+    kd_camera_hw                                                    0mV     0mV
+    kd_camera_hw                                                    0mV     0mV
+    kd_camera_hw                                                    0mV     0mV
+    kd_camera_hw                                                    0mV     0mV
+    kd_camera_hw                                                    0mV     0mV
+    kd_camera_hw                                                    0mV     0mV
+ vdram1                           0    0      0  1125mV     0mA   500mV  2087mV 
+ vcore                            0    2      0   650mV     0mA   500mV  1293mV 
+    10012000.dvfsrc                                                 0mV     0mV
+    mmdvfs_pmqos                                                    0mV     0mV
+ vpa                              0    0      0   500mV     0mA   500mV  3650mV 
+ vproc11                          0    2      0   681mV     0mA   500mV  1293mV 
+    1100b000.eem_fsm                                                0mV     0mV
+    mt_cpufreq                                                      0mV     0mV
+ vproc12                          0    2      0   681mV     0mA   500mV  1293mV 
+    1100b000.eem_fsm                                                0mV     0mV
+    mt_cpufreq                                                      0mV     0mV
+ vgpu                             0    1      0   500mV     0mA   500mV  1293mV 
+    gpufreq                                                       612mV   950mV
+ vs2                              0    0      0  1350mV     0mA   500mV  2087mV 
+ vmodem                           0    0      0   650mV     0mA   500mV  1293mV 
+ vs1                              0    0      0  2000mV     0mA  1000mV  2587mV 
+ vdram2                           0    0      0   600mV     0mA   600mV  1800mV 
+ vsim1                            0    0      0  1800mV     0mA  1700mV  3100mV 
+ vibr                             0    0      0  3000mV     0mA  1200mV  3300mV 
+ vrf12                            0    0      0  1200mV     0mA  1200mV  1200mV 
+ vio18                            1    1      0  1800mV     0mA  1800mV  1800mV 
+    musb-hdrc                                                       0mV     0mV
+ vusb                             1    1      0  3000mV     0mA  3000mV  3100mV 
+    musb-hdrc                                                       0mV     0mV
+ vcamio                           0    5      0  1800mV     0mA  1800mV  1800mV 
+    kd_camera_hw                                                 1800mV  1800mV
+    kd_camera_hw                                                 1800mV  1800mV
+    kd_camera_hw                                                 1800mV  1800mV
+    kd_camera_hw                                                 1800mV  1800mV
+    kd_camera_hw                                                 1800mV  1800mV
+ vcamd                            0    3      0  1200mV     0mA   900mV  1800mV 
+    kd_camera_hw                                                    0mV     0mV
+    kd_camera_hw                                                 1200mV  1200mV
+    kd_camera_hw                                                 1200mV  1200mV
+ vcn18                            1    1      0  1800mV     0mA  1800mV  1800mV 
+    18002000.consys                                              1800mV  1800mV
+ vfe28                            0    0      0  2800mV     0mA  2800mV  2800mV 
+ vsram_proc11                     0    1      0   850mV     0mA   500mV  1293mV 
+    mt_cpufreq                                                      0mV     0mV
+ vcn28                            0    1      0  2800mV     0mA  2800mV  2800mV 
+    18002000.consys                                              2800mV  2800mV
+ vsram_others                     0    0      0   900mV     0mA   500mV  1293mV 
+ vsram_gpu                        0    1      0   850mV     0mA   500mV  1293mV 
+    gpufreq                                                       850mV  1050mV
+ vxo22                            0    0      0  2200mV     0mA  2200mV  2200mV 
+ vefuse                           0    0      0  1800mV     0mA  1700mV  1900mV 
+ vaux18                           0    0      0  1800mV     0mA  1800mV  1800mV 
+ vmch                             0    1      0  3000mV     0mA  2900mV  3300mV 
+    externdevice                                                 3000mV  3000mV
+ vbif28                           0    0      0  2800mV     0mA  2800mV  2800mV 
+ vsram_proc12                     0    1      0   850mV     0mA   500mV  1293mV 
+    mt_cpufreq                                                      0mV     0mV
+ vcama1                           0    2      0  2800mV     0mA  1800mV  3000mV 
+    kd_camera_hw                                                 2800mV  2800mV
+    kd_camera_hw                                                 2800mV  2800mV
+ vemc                             1    1      0  3000mV     0mA  2900mV  3300mV 
+    bootdevice                                                   3000mV  3000mV
+ vio28                            0    0      0  2800mV     0mA  2800mV  2800mV 
+ va12                             1    1      0  1200mV     0mA  1200mV  1200mV 
+    musb-hdrc                                                       0mV     0mV
+ vrf18                            0    0      0  1800mV     0mA  1800mV  1800mV 
+ vcn33_bt                         1    1      0  3300mV     0mA  3300mV  3500mV 
+    18002000.consys                                              3300mV  3300mV
+ vcn33_wifi                       0    1      0  3300mV     0mA  3300mV  3500mV 
+    18002000.consys                                                 0mV     0mV
+ vcama2                           0    1      0  2800mV     0mA  1800mV  3000mV 
+    kd_camera_hw                                                 2800mV  2800mV
+ vmc                              0    1      0  3000mV     0mA  1800mV  3300mV 
+    externdevice                                                 3000mV  3000mV
+ vldo28                           0    1      0  2800mV     0mA  2800mV  3000mV 
+    MAINAF                                                          0mV     0mV
+ vaud28                           0    0      0  2800mV     0mA  2800mV  2800mV 
+ vsim2                            0    0      0  3000mV     0mA  1700mV  3100mV 
+ va09                             0    0      0   900mV     0mA   900mV   900mV 

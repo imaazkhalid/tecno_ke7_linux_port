@@ -413,6 +413,15 @@ static void md_cd_dump_ccif_reg(unsigned char hif_id)
 			ccif_read32(ccif_ctrl->ccif_ap_base + APCCIF_CHDATA,
 				(idx + 3) * sizeof(u32)));
 	}
+
+	/* DEBUG: make the CCIF SRAM content visible in dmesg */
+	if (ccif_ctrl->ccif_sram_layout) {
+		pr_info("[ccci1/cif] ---- CCIF SRAM (%u bytes) ----\n",
+			ccif_ctrl->sram_size);
+		print_hex_dump(KERN_INFO, "ccifsram", DUMP_PREFIX_OFFSET,
+			32, 4, ccif_ctrl->ccif_sram_layout,
+			ccif_ctrl->sram_size, false);
+	}
 }
 
 static int ccif_debug_dump_data(unsigned int hif_id, int *buff, int length)
@@ -838,6 +847,32 @@ static void md_ccif_traffic_work_func(struct work_struct *work)
 		CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "%s\n", string);
 
 	}
+	/*
+	 * DEBUG: dump ring buffer pointers.  For RX, "write" is advanced by the
+	 * MD and "read" by the AP, so write != read proves the modem has queued
+	 * data that never raised an interrupt.  This is what tells us whether
+	 * the MD is silently waiting or has a stuck doorbell.
+	 */
+	for (idx = 0; idx < QUEUE_NUM; idx++) {
+		struct ccci_ringbuf *rb = md_ctrl->rxq[idx].ringbuf;
+
+		if (!rb)
+			continue;
+		if (rb->rx_control.write == rb->rx_control.read &&
+		    idx > 6 && idx != 15)
+			continue;
+		pr_info("[ccci1/cif] Q%d rx(w=%d r=%d) tx(w=%d r=%d) ch=%d\n",
+			idx, rb->rx_control.write, rb->rx_control.read,
+			rb->tx_control.write, rb->tx_control.read,
+			md_ctrl->rxq[idx].ccif_ch);
+	}
+	pr_info("[ccci1/cif] APST=%08X APBSY=%08X APRCH=%08X APACK=%08X MDST=%08X MDBSY=%08X\n",
+		ccif_read32(md_ctrl->ccif_ap_base, APCCIF_START),
+		ccif_read32(md_ctrl->ccif_ap_base, APCCIF_BUSY),
+		ccif_read32(md_ctrl->ccif_ap_base, APCCIF_RCHNUM),
+		ccif_read32(md_ctrl->ccif_ap_base, APCCIF_ACK),
+		ccif_read32(md_ctrl->ccif_md_base, APCCIF_START),
+		ccif_read32(md_ctrl->ccif_md_base, APCCIF_BUSY));
 err_exit1:
 	kfree(string);
 	kfree(string_temp);
@@ -2231,6 +2266,10 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 	md_ctrl->ccif_sram_layout =
 		(struct ccif_sram_layout *)(md_ctrl->ccif_ap_base
 		+ APCCIF_CHDATA);
+	pr_info("[ccci1/cif] sram_size=%u layout=%zu (dl_hdr=%zu md_q=%zu up_hdr=%zu ap_q=%zu)\n",
+		md_ctrl->sram_size, sizeof(struct ccif_sram_layout),
+		sizeof(struct ccci_header), sizeof(struct md_query_ap_feature),
+		sizeof(struct ccci_header), sizeof(struct ap_query_md_feature));
 	for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
 		ccif_clk_table[idx].clk_ref = devm_clk_get(dev,
 			ccif_clk_table[idx].clk_name);

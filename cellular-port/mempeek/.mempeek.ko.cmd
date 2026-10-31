@@ -1,1 +1,0 @@
-savedcmd_mempeek.ko := aarch64-linux-gnu-ld -r -EL  -maarch64elf --compress-debug-sections=zstd -z noexecstack --no-warn-rwx-segments --build-id=sha1  -T ~/tecno_ke7_linux_port/linux/scripts/module.lds -o mempeek.ko mempeek.o mempeek.mod.o .module-common.o
