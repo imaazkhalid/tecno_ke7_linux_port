@@ -49,9 +49,13 @@ is built.
 
 | Track | Purpose |
 |---|---|
-| **LTS** (6.12 / 6.18) | the kernels the device actually runs |
-| **linux-next** | weekly build of DT + drivers; catches API breakage early |
+| **LTS only** (6.12, 6.18, next LTS) | the kernels the device actually runs |
+| **linux-next** | build-only check; catches API breakage early, never shipped |
 | **Stable** | cherry-pick fixes only |
+
+**Project policy: we target LTS releases only.** No mainline-rc chasing, no
+non-LTS stable branches. `linux-next` is used strictly as a compile canary so the
+next LTS does not catch us by surprise.
 
 Rules:
 

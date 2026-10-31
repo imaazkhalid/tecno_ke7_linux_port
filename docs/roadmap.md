@@ -40,8 +40,17 @@ driver pointer table at `0xffffff8008f7a6c0` (zero in the image: the table is
 4. Last resort: conservative values (800×1750 total, 84 MHz pixel clock) and adjust
    until the panel locks at 60 Hz.
 
-**Deliverable:** `dts/panel-nt36525b-ke7.dtsi` with real values + a
-`panel-novatek-nt36525b` driver compatible with `panel-simple` style.
+**Status:** driver, binding and DT node are written and compile:
+
+- `patches/linux/0001-ke7-board-and-drivers.patch` now contains
+  `panel-novatek-nt36525b.c`, its YAML binding, the panel node and the
+  `display-timings` block.
+- `make mediatek/mt6768-tecno-ke7.dtb` builds cleanly.
+- Timings are DT-driven, so calibration needs **no driver rebuild**.
+
+**Remaining:** flash the DTB, bring up `mtk_dsi` + mmsys/ovl/rdma, then tune
+`display-timings` until the panel locks at 60 Hz (or extract the exact porches
+from LK).
 
 ### 2.2 Fingerprint (Sunwave)
 

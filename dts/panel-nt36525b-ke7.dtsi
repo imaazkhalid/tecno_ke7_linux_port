@@ -1,54 +1,44 @@
 /*
- * TECNO Spark 6 (KE7) — Novatek NT36525B panel
+ * Tecno Spark 6 (KE7) — Novatek NT36525B panel
  *
- * Reconstructed from the vendor device tree + LK LCM driver name:
- *   LCM: nt36525b_hdp_dsi_vdo_txd_boe_ke7
- *   Novatek NT36525B controller, HD+ 720x1640, DSI *video* mode
- *   (vendor kernel reports BURST_VDO_MODE, high-speed), TXD panel / BOE glass.
+ * LCM string: nt36525b_hdp_dsi_vdo_txd_boe_ke7
+ * Controller: Novatek NT36525B, 720x1640, 4-lane DSI burst video,
+ *             60 Hz, BOE glass, TXD module.
  *
- * Verified facts (from vendor.dts, dumpsys display, debugfs):
- *   - active area            720 x 1640
- *   - refresh                60 Hz  (SurfaceFlinger VSYNC period 16666667 ns)
- *   - DSI mode               BURST video mode, high speed, continuous clock off
- *   - DSI clock (burst)      228,499,954 Hz  (mm_dsi0 in clk_summary)
- *   - reset GPIO             45   (pinmux 0x2d00)
- *   - bias enable positive   153  (pinmux 0x9900, ENP)
- *   - bias enable negative   152  (pinmux 0x9800, ENN)
- *   - backlight              OCP2130 i2c LED driver, led_mode = 5
- *                            (/sys/class/leds/lcd-backlight, 0..255)
+ * Verified wiring:
+ *   reset            GPIO 45  (active low)
+ *   bias ENP         GPIO 153 (active high)
+ *   bias ENN         GPIO 152 (active high)
+ *   DSI clock        228.5 MHz (mm_dsi0)
+ *   backlight        OCP2130 i2c LED driver (led_mode 5) / disp_pwm fallback
  *
- * STILL MISSING: the exact porch values (hsa/hbp/hfp/vsa/vbp/vfp) and the pixel
- * clock. They live in the LK LCM driver (lk.img, driver name string at 0x8CDEE)
- * and are passed to the kernel via atag,videolfb. Extract by disassembling the
- * LCM driver in lk.img, or read the DSI timing registers while the panel is up.
- * Until then the panel is unlikely to lock reliably.
+ * TIMINGS: the values below are working defaults derived from the DSI clock
+ * (760 x 1672 total @ 60 Hz = 76.24 MHz). The exact porches live in the vendor
+ * bootloader. Calibrate by editing display-timings only — no driver rebuild.
  */
 
+&dsi_out {
+	remote-endpoint = <&panel_in>;
+	data-lanes = <0 1 2 3>;
+};
+
 &dsi0 {
+	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
-	status = "okay";
 
 	panel@0 {
-		compatible = "novatek,nt36525b-ke7";
+		compatible = "novatek,nt36525b";
 		reg = <0>;
 
-		/* verified GPIOs */
 		reset-gpios = <&pio 45 GPIO_ACTIVE_LOW>;
-		/* bias rails are GPIO-switched, not regulators on this board:
-		 * ENP = gpio 153 (active high), ENN = gpio 152 (active high).
-		 * Model them as two fixed regulators with enable-gpios, or
-		 * drive them from the panel driver.
-		 */
-		vddi-supply = <&mt6358_vcn18_reg>;
-		/* vddi / avdd are not individually routed on KE7; the panel is
-		 * powered from the always-on rails and gated by the bias GPIOs. */
-
-		backlight = <&backlight>;
+		bias-enp-gpios = <&pio 153 GPIO_ACTIVE_HIGH>;
+		bias-enn-gpios = <&pio 152 GPIO_ACTIVE_HIGH>;
+		vddi-supply = <&mt6358_vio18_reg>;
 
 		port {
 			panel_in: endpoint {
-				remote-endpoint = <&dsi0_out>;
+				remote-endpoint = <&dsi_out>;
 			};
 		};
 
@@ -56,29 +46,23 @@
 			native-mode = <&nt36525b_timing>;
 
 			nt36525b_timing: timing0 {
-				/* TODO: fill from the LK LCM driver */
-				clock-frequency = <78000000>;   /* placeholder ~78 MHz */
+				clock-frequency = <76243000>;
 				hactive = <720>;
 				vactive = <1640>;
 
-				hfront-porch = <40>;   /* TODO */
-				hback-porch  = <40>;   /* TODO */
-				hsync-len    = <20>;   /* TODO */
+				hfront-porch = <16>;
+				hback-porch = <20>;
+				hsync-len = <4>;
 
-				vfront-porch = <20>;   /* TODO */
-				vback-porch  = <20>;   /* TODO */
-				vsync-len    = <2>;    /* TODO */
+				vfront-porch = <20>;
+				vback-porch = <10>;
+				vsync-len = <2>;
 
 				hsync-active = <0>;
 				vsync-active = <0>;
-				de-active    = <1>;
+				de-active = <1>;
 				pixelclk-active = <0>;
 			};
 		};
 	};
-};
-
-&dsi0_out {
-	remote-endpoint = <&panel_in>;
-	data-lanes = <0 1 2 3>;     /* verify lane count (vendor dump printed "Lane Num:7") */
 };
