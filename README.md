@@ -129,6 +129,7 @@ docs/                 curated documentation (start here)
   ├── overview.md     goals, constraints, results
   ├── reproduce.md    THE step-by-step guide (any device state)
   ├── firmware.md     exact build id, image manifest + SHA-256 verifier
+  ├── dual-boot.md    Android on eMMC + Linux on SD (AVB findings)
   ├── sources.md      where to obtain firmware, tools and vendor source
   ├── hardware.md     board map, GPIO/I2C/IRQ reference
   ├── hardware-matrix.md  per-component driver matrix (chips, buses, gaps)
