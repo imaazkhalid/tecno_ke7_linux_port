@@ -174,3 +174,19 @@ times. Measure with the trace after the system settles.
 This was a **vendor build.prop tweak**, not a hardware or display-driver limitation.
 The panel, DSI timing and HWC are all capable of 60 Hz. A future Android port should
 not inherit this prop (or must override it to 0).
+
+## UPDATE 2026-11-03 — attempted fix REVERTED (user-verified)
+
+The `debug.sf.disable_backpressure=0` change was applied and verified in the kernel
+trace (`Choreographer#doFrame` 29.9 Hz → 60.7 Hz), but **the user reported no
+perceived improvement, and that the display felt slower.** The Magisk module was
+removed, the prop restored to the vendor value `1`, and the phone rebooted
+(verified: `getprop debug.sf.disable_backpressure` = 1, module gone).
+
+**Do not re-apply this change without new evidence.** The vsync cadence was real,
+but it is not what the user perceives as sluggish. Treat the trace result as a
+measurement artefact of *frame pacing*, not of felt responsiveness.
+
+Remaining candidates for the felt sluggishness (not yet measured):
+input→display latency, app cold-start time, SurfaceFlinger/HWC present latency,
+binder round-trips, memory reclaim (only ~77 MB free), storage I/O stalls.

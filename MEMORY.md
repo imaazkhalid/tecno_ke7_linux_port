@@ -344,8 +344,10 @@ delivers `VSYNC-app` every second frame:
 Fix: `resetprop debug.sf.disable_backpressure 0` before SurfaceFlinger starts →
 `Choreographer#doFrame` **16.48 ms = 60.7 Hz**, SystemUI median frame 46 ms → 17 ms.
 
-Persisted with Magisk module `tools/magisk/ke7_vsync_fix/` (post-fs-data.sh), verified
-across reboot (`getprop` = 0 after boot).
+**REVERTED 2026-11-03**: applied as a Magisk module, trace confirmed 60.7 Hz, but the
+user reported no improvement and *worse* feel. Module removed, prop restored to 1,
+rebooted and verified. Do not re-apply without new evidence — frame-pacing numbers
+are not the same as felt responsiveness.
 
 Verify with `atrace ... gfx view sched -a com.android.systemui` and measure
 `Choreographer#doFrame` intervals. Ignore `gfxinfo` jank % right after boot: Play
