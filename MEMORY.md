@@ -362,3 +362,34 @@ vendor, display, boot0/boot1, primary+backup GPT. `super`/`userdata` are in
 
 Method note: `adb exec-out` through `su` is **not** binary-safe (CR before LF);
 use `dd` on device + `adb pull`, then verify SHA-256 against the device.
+
+## 10. Device handed over for daily use (2026-11-03 21:50)
+
+Final configuration of the phone as a normal daily device:
+
+| Item | Value |
+|---|---|
+| Build | `KE7-H693HJKM-Q-GL-220729V478`, Android 10, security patch **2022-07-05** |
+| Boot state | `orange` (bootloader unlocked) |
+| Magisk | **31.1** core + app (`31100`) |
+| Root access | **only `com.android.shell` (uid 2000, policy=2)**; `app.morphe.manager` denied (policy=1) — verified in the Magisk Superuser UI (Shell ON, Morphe OFF) |
+| Play Protect | `package_verifier_enable=1`, `verifier_verify_adb_installs=1` |
+| Internal storage | 42 GB free |
+| SD card | **reformatted portable**, 14.6 GB, UUID `8968-1D0A` |
+| SIM | loaded (`Jazz`) |
+| Google accounts | none signed in (user will add) |
+
+Cleanup performed:
+- `/data/local/tmp` cleared (332 MB of port files)
+- `/sdcard` port dumps removed (`dtbo.img`, `fdt.dtb`, `libcam*.so`, `sensors.mt6768.so`,
+  `swfingerprint.default.so`, `mddb.*`, `ta.tar`, `vendor_fw.tar`) and `Download/` APKs (610 MB)
+- Internal ESP `p40` cleared (Linux boot files, 100 MB → 4 KB)
+- SD card repartitioned: old `BOOT`(FAT16)+`KE7ROOT`(ext4) replaced by one portable volume
+- Kept: the one `DCIM` photo
+
+**Magisk update note:** the `boot` partition is **write-protected from Android**
+(`dd: Operation not permitted`). Magisk 27.0 → 31.1 was applied by patching the boot image
+with the 31.1 assets (`boot_patch.sh` + `magiskboot`/`magiskinit`/`magisk`/`init-ld` from the
+APK) and flashing via **BROM** (`sector 1157120`). Rollback images:
+`backup/boot_current_magisk27.img` (sha `7b6242ab…`) and `flash_images/boot_magisk31.img`.
+Any future Magisk update must go through BROM too.
