@@ -1,0 +1,6 @@
+id=ke7_vsync_fix
+name=KE7 VSync Backpressure Fix
+version=1.0
+versionCode=1
+author=mk
+description=Overrides vendor debug.sf.disable_backpressure=1 to 0 at boot. /vendor/build.prop:409 sets it and it halves SurfaceFlinger app vsync dispatch to 30Hz (UI animations at ~30fps). 0 restores 60Hz.

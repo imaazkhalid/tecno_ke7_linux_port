@@ -332,6 +332,25 @@ mode, porches/pixel clock, TE/vsync source, appVsyncOffset/presentDeadline,
 CMDQ), then re-measure. Do not tune governors before the cadence is a clean
 16.7 ms.
 
+
+### 8.1 FIXED 2026-11-03 — UI was 30 Hz because of a vendor prop
+
+`/vendor/build.prop:409` sets `debug.sf.disable_backpressure=1`. With it, SF's DispSync
+delivers `VSYNC-app` every second frame:
+
+- `VSYNC-app` median **33.44 ms (29.9 Hz)**; `Choreographer#doFrame` 33.48 ms
+- while app work is `DrawFrame 0.53 ms`, `dequeueBuffer 0.63 ms`
+
+Fix: `resetprop debug.sf.disable_backpressure 0` before SurfaceFlinger starts →
+`Choreographer#doFrame` **16.48 ms = 60.7 Hz**, SystemUI median frame 46 ms → 17 ms.
+
+Persisted with Magisk module `tools/magisk/ke7_vsync_fix/` (post-fs-data.sh), verified
+across reboot (`getprop` = 0 after boot).
+
+Verify with `atrace ... gfx view sched -a com.android.systemui` and measure
+`Choreographer#doFrame` intervals. Ignore `gfxinfo` jank % right after boot: Play
+Services pushes load average to ~26 (eMMC D-state) for several minutes.
+
 ## 9. Backups — complete Android reference
 
 `backup/android-all-20261031-1945/` — **every readable partition** (47 files,

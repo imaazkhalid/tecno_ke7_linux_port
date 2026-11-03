@@ -112,3 +112,65 @@ adb shell cmd statusbar expand-notifications   # / collapse
 adb shell su -c 'cat /proc/gpufreq/gpufreq_var_dump'   # real GPU clock
 adb shell su -c 'echo 823000 > /proc/gpufreq/gpufreq_opp_freq'   # pin, 0 = auto
 ```
+
+---
+
+# ROOT CAUSE FOUND — `debug.sf.disable_backpressure=1` (2026-11-03)
+
+## Evidence
+
+An ftrace capture (`atrace -t 4 gfx view sched -a com.android.systemui`) during the
+shade animation gives the definitive picture:
+
+| Marker | Median | Implied rate |
+|---|---|---|
+| `DispSync: VSYNC-app` | **33.44 ms** | **29.9 Hz** |
+| `Choreographer#doFrame` | **33.48 ms** | **29.9 Hz** |
+| `DrawFrame` (app work) | 0.53 ms | — |
+| `dequeueBuffer` | 0.63 ms | — |
+| `flush commands` | 1.46 ms | — |
+
+The app finishes each frame in well under 1 ms and then waits ~33 ms. The limit is
+SurfaceFlinger's vsync dispatcher, not the app, CPU, GPU or memory.
+
+## Cause
+
+`/vendor/build.prop:409`:
+
+```
+debug.sf.disable_backpressure=1
+```
+
+With that prop, DispSync dispatches `VSYNC-app` to applications only every second
+vsync.
+
+## Fix
+
+```
+resetprop debug.sf.disable_backpressure 0     # before SurfaceFlinger starts
+```
+
+Result (same trace, after fix): `Choreographer#doFrame` median **16.48 ms = 60.7 Hz**,
+`VSYNC-app` every 16.7 ms; SystemUI 50th percentile frame time dropped 46 ms → 17 ms.
+
+Persisted with a Magisk module: `tools/magisk/ke7_vsync_fix/` (see its INSTALL.md).
+
+## Verify
+
+```bash
+adb shell su -c 'atrace -t 4 -b 20000 gfx view sched -a com.android.systemui' > trace.txt
+# median interval between "Choreographer#doFrame" lines should be ~16.7 ms
+adb shell getprop debug.sf.disable_backpressure   # expect 0
+```
+
+## Note on `dumpsys gfxinfo` jank %
+
+Do not trust it immediately after a reboot: Google Play Services / Vending cause a
+load average of ~26 with eMMC D-state I/O for several minutes, which inflates frame
+times. Measure with the trace after the system settles.
+
+## Implication for a newer Android
+
+This was a **vendor build.prop tweak**, not a hardware or display-driver limitation.
+The panel, DSI timing and HWC are all capable of 60 Hz. A future Android port should
+not inherit this prop (or must override it to 0).
