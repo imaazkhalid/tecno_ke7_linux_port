@@ -393,3 +393,44 @@ with the 31.1 assets (`boot_patch.sh` + `magiskboot`/`magiskinit`/`magisk`/`init
 APK) and flashing via **BROM** (`sector 1157120`). Rollback images:
 `backup/boot_current_magisk27.img` (sha `7b6242ab…`) and `flash_images/boot_magisk31.img`.
 Any future Magisk update must go through BROM too.
+
+## 11. Debloat hides apps — nothing was deleted (2026-11-04)
+
+**Symptom:** contacts/calendar would not sync after signing in to Google.
+
+**Cause:** the ROM's debloat used `pm uninstall --user 0`, which hides a package for the
+user but leaves the APK in `/system` or `/product`. 58 packages are hidden this way,
+including the two sync adapters:
+
+```
+com.google.android.syncadapters.contacts   (/product/app/GoogleContactsSyncAdapter)
+com.google.android.syncadapters.calendar
+com.google.android.gm                      (/product/app/Gmail2)
+```
+
+**Fix (no root needed):**
+
+```bash
+adb shell pm install-existing com.google.android.syncadapters.contacts
+adb shell pm install-existing com.google.android.syncadapters.calendar
+adb shell pm install-existing com.google.android.gm
+```
+
+After that, sync engine reports `com.android.contacts` and `com.android.calendar`
+under the `com.google` account as `SUCCESS`.
+
+**How to find any "missing" app on this phone:**
+
+```bash
+adb shell pm list packages -u        # includes packages hidden per-user
+adb shell pm install-existing <pkg>  # restore without reflashing
+```
+
+Other notably hidden packages: `com.android.chrome`, `com.google.android.apps.maps`,
+`com.google.android.apps.messaging`, `com.google.android.googlequicksearchbox`,
+`com.google.android.tts`, `com.google.android.apps.wellbeing`, `com.google.android.youtube`.
+The user chose to restore only Gmail + the two sync adapters (TTS restored, then removed again).
+
+**Second account trap:** microG (`app.revanced.android.gms`) registers a second account
+with the same Gmail address (`type=app.revanced`). Its contacts sync is disabled; the real
+`com.google` account is the one that syncs.
