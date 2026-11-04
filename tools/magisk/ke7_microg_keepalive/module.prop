@@ -1,0 +1,6 @@
+id=ke7_microg_keepalive
+name=KE7 microG Keepalive
+version=1.0
+versionCode=1
+author=mk
+description=Restarts ReVanced microG (app.revanced.android.gms) within ~15s if it is killed. Android's Clear-all in Recents kills any app without a foreground service; microG has none, so YouTube then fails with a microG help page. Also re-applies the Doze whitelist at boot.

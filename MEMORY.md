@@ -434,3 +434,28 @@ The user chose to restore only Gmail + the two sync adapters (TTS restored, then
 **Second account trap:** microG (`app.revanced.android.gms`) registers a second account
 with the same Gmail address (`type=app.revanced`). Its contacts sync is disabled; the real
 `com.google` account is the one that syncs.
+
+## 12. microG keepalive for Morphe YouTube (2026-11-04)
+
+**Symptom:** after swiping microG from Recents, patched YouTube opens a browser help page
+instead of the feed. microG only matters while it is running.
+
+**Cause:** standard Android behaviour — "Clear all" in Recents calls
+`killAllBackgroundProcesses()`, which kills any process **without a foreground service**.
+ReVanced microG (`app.revanced.android.gms`) has no foreground service, so it dies.
+It was already: Doze-whitelisted (`user,app.revanced.android.gms,10152`) and in standby
+bucket 5 (EXEMPTED) — neither protects against task-removal kill.
+
+**Fix:** Magisk module `tools/magisk/ke7_microg_keepalive/` (`service.sh`) that re-applies
+the Doze whitelist at boot and, every 15 s, respawns microG if its process is gone by
+sending the exported action
+`app.revanced.android.gms.fitness.GoogleFitnessService.START` (a running service also
+lifts the process out of the "background" adj class, so it survives `am kill-all`).
+
+Verified: `am force-stop app.revanced.android.gms` → process gone → back as a new pid
+within 25 s; YouTube Morphe then opens the normal feed.
+
+Notes:
+- `tran_freeze_cloud_support` was temporarily set to 0 while testing and restored to 1;
+  the watchdog does not depend on it.
+- microG must stay installed — it provides the Google APIs that Morphe YouTube calls.
