@@ -376,7 +376,7 @@ Final configuration of the phone as a normal daily device:
 | Play Protect | `package_verifier_enable=1`, `verifier_verify_adb_installs=1` |
 | Internal storage | 42 GB free |
 | SD card | **reformatted portable**, 14.6 GB, UUID `8968-1D0A` |
-| SIM | loaded (`Jazz`) |
+| SIM | loaded (carrier) |
 | Google accounts | none signed in (user will add) |
 
 Cleanup performed:

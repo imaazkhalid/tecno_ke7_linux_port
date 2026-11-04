@@ -198,7 +198,7 @@
   * **SUPERSEDED (Oct 25, 2026):** vendor LR12A.R3.MP source analysis shows EINT is **not** on the HS2 critical path (see §3.15 / HARDWARE §31). Keep the node (it is correct), but expect HS2 to still fail; debug the pre-SIM-reset init stage instead.
 - [ ] Mount NVRAM partitions and populate them before the modem starts asking for files (`/mnt/vendor/nvdata/md`, `protect_f/md`, `protect_s/md`, `nvcfg`, `nvdata/md_cmn`, `mdlpm`, `etc/mdota`, `firmware`).
 - [ ] Recover NVRAM/RF calibration + IMEI (p8-p12, p26 are fully erased; user can supply the device IMEI).
-- [ ] Verify SIM detection (Jazz SIM) via AT commands (`AT+CPIN?`, `AT+CSQ`, `AT+COPS?`) and test data connection over `ccmni0`.
+- [ ] Verify SIM detection (carrier SIM) via AT commands (`AT+CPIN?`, `AT+CSQ`, `AT+COPS?`) and test data connection over `ccmni0`.
 - [ ] Bring up Audio (`snd-soc-mt6768-afe` + `mt6768-mt6358` + GPIO 39 2-pulse external speaker amp).
 
 ---
@@ -2228,7 +2228,7 @@ python3 tools/snw_drive.py <IMEI1> <IMEI2>
 adb shell "su -c 'service call iphonesubinfo 1'"
 # Parcel (UTF-16): <IMEI1>  <- correct
 ```
-`dumpsys telephony.registry`: SIM in slot 1 is `IN_SERVICE` on **Jazz**
+`dumpsys telephony.registry`: SIM in slot 1 is `IN_SERVICE` on the carrier
 (MCC 410 / MNC 01), LTE band 1850, voice+data registered. The modem only
 attaches with a valid IMEI, so this is independent confirmation that the write
 took effect.

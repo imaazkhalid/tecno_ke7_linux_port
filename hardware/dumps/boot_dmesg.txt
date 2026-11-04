@@ -4522,7 +4522,7 @@
 [   22.379448] .(0)[615:HwBinder:526_2][ION]ion_mm_heap_phys: warning not config buffer
 [   22.380458] .(0)[615:HwBinder:526_2][M4U] m4u_port_2_larb_id, 157, invalid port-1
 [   22.381542] .(0)[615:HwBinder:526_2][ION][ion_mm_heap_phys] warning. Buffer not configured.
-[   22.382459] .(3)[1:init]init 19: ReapLogT PropSet [gsm.network.type]=[Unknown,Unknown,Unknown]22.174933 [gsm.sim.operator.alpha]=[Jazz]22.265029 [persist.vendor.radio.unlock]=[false]22.275614 [persist.vendor.radio.sim.status]=[]22.285541 [gsm.sim.operator.numeric]=[41001]22.306905 [gsm.sim.operator.iso-country]=[pk]22.307695 [gsm.sim.operator.alpha]=[Jazz]22.311655 [vendor.gsm.sim.operator.default-name]=[Jazz]22.312861 [gsm.sim.operator.alpha]=[Jazz]22.313737 Done
+[   22.382459] .(3)[1:init]init 19: ReapLogT PropSet [gsm.network.type]=[Unknown,Unknown,Unknown]22.174933 [gsm.sim.operator.alpha]=[Carrier]22.265029 [persist.vendor.radio.unlock]=[false]22.275614 [persist.vendor.radio.sim.status]=[]22.285541 [gsm.sim.[MCCMNC]22.306905 [gsm.sim.operator.[CC]22.307695 [gsm.sim.operator.alpha]=[Carrier]22.311655 [vendor.gsm.sim.operator.default-name]=[Carrier]22.312861 [gsm.sim.operator.alpha]=[Carrier]22.313737 Done
 [   22.382634] .(0)[615:HwBinder:526_2]0x0000000022edb986   163840   0   5   4  -1   1 9232388040837562368(9232388040792473600) 18446743622737985536(18446743523953737728) 0x0, 0x0,   525(  525)  allocator@2.0-s 0x655 0x3 0x911d9098 0x7d ScreenDecorOverlay#0
 [   22.390967] .(0)[615:HwBinder:526_2][ION][ion_mm_heap_phys] warning. Buffer not configured.
 [   22.392066] .(0)[615:HwBinder:526_2]0x000000001fc1f055   208896   0   5   4  -1   1 9232388040839659520(9232388040792473600) 18446743622737985536(18446743523953737728) 0x0, 0x0,   525(  525)  allocator@2.0-s 0x655 0x4 0x1 0x0 ScreenDecorOverlayBottom#0
@@ -4670,7 +4670,7 @@
 [   22.668002] .(0)[615:HwBinder:526_2]0x0000000022edb986   163840   0   5   4  -1   1 9232388040837562368(9232388040792473600) 18446743622737985536(18446743523953737728) 0x0, 0x0,   525(  525)  allocator@2.0-s 0x655 0x3 0x911d9098 0x7d ScreenDecorOverlay#0
 [   22.668031] .(0)[615:HwBinder:526_2][ION][ion_mm_heap_phys] warning. Buffer not configured.
 [   22.668040] .(0)[615:HwBinder:526_2]0x000000001fc1f055   208896   0   5   4  -1   1 9232388040839659520(9232388040792473600) 18446743622737985536(18446743523953737728) 0x0, 0x0,   525(  525)  allocator@2.0-s 0x655 0x4 0x1 0x0 ScreenDecorOverlayBottom#0
-[   22.672669] .(3)[1:init]init 19: ReapLogF PropSet [gsm.operator.iso-country]=[pk]22.566557 [service.bootanim.exit]=[1]22.625686 [persist.sys.tsd.imsservice]=[1]22.664278 [sys.boot_completed]=[1]22.665218 Done
+[   22.672669] .(3)[1:init]init 19: ReapLogF PropSet [gsm.operator.[CC]22.566557 [service.bootanim.exit]=[1]22.625686 [persist.sys.tsd.imsservice]=[1]22.664278 [sys.boot_completed]=[1]22.665218 Done
 [   22.673398] .(7)[2250:sdcard]sdcardfs version 2.0
 [   22.673400] .(7)[2250:sdcard]sdcardfs: dev_name -> /data/media
 [   22.673402] .(7)[2250:sdcard]sdcardfs: options -> fsuid=1023,fsgid=1023,multiuser,derive_gid,default_normal,unshared_obb,reserved_mb=50,mask=6,userid=0,gid=1015
@@ -4805,7 +4805,7 @@
 [   22.811971] .(3)[362:logd.auditd]type=1400 audit(1793160137.000:153): avc: denied { read } for comm=52696C2050726F7879204D61696E20 name="u:object_r:exported3_default_prop:s0" dev="tmpfs" ino=2166 scontext=u:r:rild:s0 tcontext=u:object_r:exported3_default_prop:s0 tclass=file permissive=0 duplicate messages suppressed
 [   22.812224] .(6)[1:init]init 12: Command 'write /sys/devices/system/cpu/cpufreq/policy0/scaling_governor schedplus' action=sys.boot_completed=1 (/vendor/etc/init/hw/init.mt6768.rc:974) took 1ms and failed: Unable to write to file '/sys/devices/system/cpu/cpufreq/policy0/scaling_governor': Unable to write file contents: Invalid argument
 [   22.813540] .(3)[362:logd.auditd]type=1400 audit(1793160137.632:154): avc: denied { module_request } for comm="init" kmod="cpufreq_schedplus" scontext=u:r:vendor_init:s0 tcontext=u:r:kernel:s0 tclass=system permissive=0
-[   22.815617] .(6)[1:init]init 16: ReapLogF PropSet [selinux.restorecon_recursive]=[]22.808268 [gsm.sim.operator.numeric]=[41001]22.808804 Done
+[   22.815617] .(6)[1:init]init 16: ReapLogF PropSet [selinux.restorecon_recursive]=[]22.808268 [gsm.sim.[MCCMNC]22.808804 Done
 [   22.868921] .(7)[1:init][LED][BL] Set Backlight direT:22.868,L:21 map:21    
 [   22.896780] .(7)[1:init]init 12: processing action (sys.boot_completed=1) from (/system/etc/init/hw/init.aee.rc:46)
 [   22.899717] .(7)[1:init]init 19: starting service 'aee-reinit'...
@@ -4815,7 +4815,7 @@
 [   22.905176] .(0)[2264:init]selinux 19: SELinux: Skipping restorecon on directory(/data/vendor_ce/0)\x0a
 [   22.906059] .(7)[1:init]init 19: starting service 'batterywarning'...
 [   22.908492] .(1)[615:HwBinder:526_2][ION][ion_mm_heap_phys] warning. Buffer not configured.
-[   22.911334] .(7)[1:init]init 16: ReapLogF PropSet [gsm.sim.operator.iso-country]=[pk]22.904491 Done
+[   22.911334] .(7)[1:init]init 16: ReapLogF PropSet [gsm.sim.operator.[CC]22.904491 Done
 [   22.911726] .(1)[615:HwBinder:526_2]0x000000005ac8f0be   278528   0   5   4  -1   1 9232388040830222336(9232388040792473600) 18446743622737985536(18446743523953737728) 0x0, 0x0,   525(  525)  allocator@2.0-s 0x655 0x6 0x1 0x0 NavigationBar0#0
 [   22.912814] .(7)[1:init]init 19: processing action (sys.boot_completed=1 && sys.logbootcomplete=1) from (/system/etc/init/bootstat.rc:78)
 [   22.915645] .(1)[615:HwBinder:526_2][ION][ion_mm_heap_phys] warning. Buffer not configured.
@@ -5055,7 +5055,7 @@
 [   23.345899] .(4)[615:HwBinder:526_2][ION][ion_mm_heap_phys] warning. Buffer not configured.
 [   23.347065] .(4)[615:HwBinder:526_2]0x000000005ac8f0be   278528   0   5   4  -1   1 9232388040830222336(9232388040792473600) 18446743622737985536(18446743523953737728) 0x0, 0x0,   525(  525)  allocator@2.0-s 0x655 0x6 0x1 0x0 NavigationBar0#0
 [   23.349867] .(4)[615:HwBinder:526_2][ION][ion_mm_heap_phys] warning. Buffer not configured.
-[   23.350458] .(0)[1:init]init 12: ReapLogT PropSet [vendor.prop.pnp.version]=[2.00.001]23.142801 [vendor.prop.pnp.cpu.state]=[on enable]23.149691 [vendor.prop.pnp.blkio.state]=[off group]23.150876 [vendor.prop.pnp.param.init]=[OK]23.188352 [vendor.sys.pnpmgr.state]=[running]23.188791 [vendor.prop.pnp.io.driver.state]=[on]23.189134 [vendor.prop.pnp.driver.state]=[on]23.189498 [vendor.prop.pnp.cpu.state]=[MTK default running]23.191127 [vendor.prop.pnp.blkio.state]=[fg topapp bg running]23.194411 [gsm.sim.operator.alpha]=[Jazz]23.234701 Done
+[   23.350458] .(0)[1:init]init 12: ReapLogT PropSet [vendor.prop.pnp.version]=[2.00.001]23.142801 [vendor.prop.pnp.cpu.state]=[on enable]23.149691 [vendor.prop.pnp.blkio.state]=[off group]23.150876 [vendor.prop.pnp.param.init]=[OK]23.188352 [vendor.sys.pnpmgr.state]=[running]23.188791 [vendor.prop.pnp.io.driver.state]=[on]23.189134 [vendor.prop.pnp.driver.state]=[on]23.189498 [vendor.prop.pnp.cpu.state]=[MTK default running]23.191127 [vendor.prop.pnp.blkio.state]=[fg topapp bg running]23.194411 [gsm.sim.operator.alpha]=[Carrier]23.234701 Done
 [   23.351001] .(4)[615:HwBinder:526_2]0x0000000022edb986   163840   0   5   4  -1   1 9232388040837562368(9232388040792473600) 18446743622737985536(18446743523953737728) 0x0, 0x0,   525(  525)  allocator@2.0-s 0x655 0x3 0x911d9098 0x7d ScreenDecorOverlay#0
 [   23.351074] .(4)[615:HwBinder:526_2][ION][ion_mm_heap_phys] warning. Buffer not configured.
 [   23.351084] .(4)[615:HwBinder:526_2]0x000000001fc1f055   208896   0   5   4  -1   1 9232388040839659520(9232388040792473600) 18446743622737985536(18446743523953737728) 0x0, 0x0,   525(  525)  allocator@2.0-s 0x655 0x4 0x1 0x0 ScreenDecorOverlayBottom#0
